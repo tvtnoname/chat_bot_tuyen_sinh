@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains import RetrievalQA
 
@@ -66,8 +66,9 @@ async def startup_event():
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = text_splitter.split_documents(documents)
 
-        logging.info("Đang khởi tạo Embeddings...")
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        logging.info("Đang khởi tạo Embeddings (Gemini)...")
+        # Sử dụng Google Gemini Embeddings để tiết kiệm RAM trên Render (thay vì load model HuggingFace nặng)
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=GOOGLE_API_KEY)
 
         logging.info("Đang tạo Vector Store (ChromaDB)...")
         # Sử dụng in-memory ChromaDB để đơn giản hóa trên Render (hệ thống tệp tạm thời)
@@ -78,7 +79,7 @@ async def startup_event():
             collection_name="knowledge_base"
         )
 
-        logging.info("Đang khởi tạo LLM (Gemini 1.5 Flash)...")
+        logging.info("Đang khởi tạo LLM (Gemini 2.5 Flash)...")
         llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=GOOGLE_API_KEY, temperature=0.3)
 
         logging.info("Đang tạo chuỗi QA (QA Chain)...")
