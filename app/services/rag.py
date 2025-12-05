@@ -38,13 +38,30 @@ class RAGService:
             # 5. Khởi tạo LLM
             llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
 
-            # 6. Tạo chuỗi QA
+            # 6. Tạo chuỗi QA với Prompt tùy chỉnh
+            from langchain.prompts import PromptTemplate
+
+            template = """Bạn là trợ lý ảo AI thân thiện của Trung tâm Thăng Long.
+            Đối tượng hỏi là học sinh (học viên).
+            Hãy xưng hô là 'Tôi' và gọi người dùng là 'Em'.
+            Nếu câu hỏi nằm ngoài tài liệu, hãy trả lời khéo léo và hướng dẫn các em liên hệ hotline.
+
+            Sử dụng các thông tin sau đây để trả lời câu hỏi. Nếu không biết câu trả lời, hãy nói là bạn không biết, đừng cố bịa ra câu trả lời.
+
+            {context}
+
+            Câu hỏi: {question}
+            Trả lời:"""
+            
+            QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
+
             retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
             self.qa_chain = RetrievalQA.from_chain_type(
                 llm=llm,
                 chain_type="stuff",
                 retriever=retriever,
-                return_source_documents=False
+                return_source_documents=False,
+                chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
             )
             logging.info("Hệ thống RAG đã sẵn sàng hoạt động.")
         except Exception as e:
