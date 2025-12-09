@@ -92,23 +92,86 @@ A: Môn KHTN là môn Khoa học tự nhiên bao gồm các môn như Lý, Hóa,
 Q: Một kì trung tâm sẽ mở bao nhiêu lớp?
 A: Mỗi kì trung tâm sẽ mở khoảng 4 lớp cho môn toán, 2 lớp cho môn anh văn, 1 lớp cho môn văn và 1 lớp cho các môn khoa học tự nhiên.
 
+Q: Học phí các lớp Toán 6 là bao nhiêu?
+A: Học phí lớp Toán 6 là 1.980.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Văn 6 là bao nhiêu?
+A: Học phí lớp Văn 6 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Anh 6 là bao nhiêu?
+A: Học phí lớp Anh 6 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp KHTN (Khoa học tự nhiên) 6 là bao nhiêu?
+A: Học phí lớp KHTN 6 (Khoa học tự nhiên) là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Toán 7 là bao nhiêu?
+A: Học phí lớp Toán 7 là 1.980.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Văn 7 là bao nhiêu?
+A: Học phí lớp Văn 7 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Anh 7 là bao nhiêu?
+A: Học phí lớp Anh 7 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp KHTN (Khoa học tự nhiên) 8 là bao nhiêu?
+A: Học phí lớp KHTN 7 (Khoa học tự nhiên) là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Toán 8 là bao nhiêu?
+A: Học phí lớp Toán 8 là 1.980.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Văn 8 là bao nhiêu?
+A: Học phí lớp Văn 8 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Anh 8 là bao nhiêu?
+A: Học phí lớp Anh 8 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp KHTN (Khoa học tự nhiên) 8 là bao nhiêu?
+A: Học phí lớp KHTN 8 (Khoa học tự nhiên) là 840.000 VNĐ/khóa (12 tuần).
+
 Q: Học phí các lớp Toán 9 là bao nhiêu?
-A: Học phí lớp Toán 9 (TOAN9_HK2) là 1.980.000 VNĐ/khóa (12 tuần).
+A: Học phí lớp Toán 9 là 1.980.000 VNĐ/khóa (12 tuần).
 
 Q: Học phí các lớp Văn 9 là bao nhiêu?
-A: Học phí lớp Văn 9 (VAN9_HK2) là 840.000 VNĐ/khóa (12 tuần).
+A: Học phí lớp Văn 9 là 840.000 VNĐ/khóa (12 tuần).
 
 Q: Học phí các lớp Anh 9 là bao nhiêu?
-A: Học phí lớp Anh 9 (ANH9_HK2) là 840.000 VNĐ/khóa (12 tuần).
+A: Học phí lớp Anh 9 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp KHTN (Khoa học tự nhiên) 9 là bao nhiêu?
+A: Học phí lớp KHTN 9 (Khoa học tự nhiên) là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Toán 10 là bao nhiêu?
+A: Học phí lớp Toán 10 là 1.980.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Văn 10 là bao nhiêu?
+A: Học phí lớp Văn 10 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Anh 10 là bao nhiêu?
+A: Học phí lớp Anh 10 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp KHTN (Khoa học tự nhiên) 10 là bao nhiêu?
+A: Học phí lớp KHTN 10 (Khoa học tự nhiên) là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Toán 11 là bao nhiêu?
+A: Học phí lớp Toán 11 là 1.980.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Văn 11 là bao nhiêu?
+A: Học phí lớp Văn 11 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp Anh 11 là bao nhiêu?
+A: Học phí lớp Anh 11 là 840.000 VNĐ/khóa (12 tuần).
+
+Q: Học phí các lớp KHTN (Khoa học tự nhiên) 11 là bao nhiêu?
+A: Học phí lớp KHTN 11 (Khoa học tự nhiên) là 840.000 VNĐ/khóa (12 tuần).
 
 Q: Học phí các lớp Toán 12 là bao nhiêu?
-A: Học phí lớp Toán 12 (TOAN12_HK2) là 1.980.000 VNĐ/khóa (12 tuần).
+A: Học phí lớp Toán 12 là 1.980.000 VNĐ/khóa (12 tuần).
 
 Q: Học phí các lớp Văn 12 là bao nhiêu?
-A: Học phí lớp Văn 12 (VAN12_HK2) là 840.000 VNĐ/khóa (12 tuần).
+A: Học phí lớp Văn 12 là 840.000 VNĐ/khóa (12 tuần).
 
 Q: Học phí các lớp Anh 12 là bao nhiêu?
-A: Học phí lớp Anh 12 (ANH12_HK2) là 840.000 VNĐ/khóa (12 tuần).
+A: Học phí lớp Anh 12 là 840.000 VNĐ/khóa (12 tuần).
 
 Q: Trung tâm có những môn học nào?
 A: Trung tâm giảng dạy các môn: Toán học, Ngữ Văn, Anh Văn, và Khoa học tự nhiên (Lý-Hóa-Sinh).
@@ -126,7 +189,7 @@ Q: Địa chỉ trụ sở chính ở đâu?
 A: 766/36-766/38 Cách Mạng Tháng Tám, Phường 5, Quận Tân Bình, TP.HCM.
 
 Q: Số điện thoại liên hệ là gì?
-A: Bạn có thể gọi đến số 38420372 hoặc 38460835.
+A: Bạn có thể gọi đến số 038420372 hoặc 038460835.
 
 Q: Fanpage và Website của trung tâm là gì?
 A: Fanpage: facebook.com/luyenthithanglong. Website: luyenthithanglong.edu.vn.
@@ -203,4 +266,7 @@ Q: Em có em ruột cũng muốn học, có được giảm giá không?
 A: Có chính sách ưu đãi cho anh/chị/em ruột: Giảm 20% học phí cho người thứ 2 trở đi.
 
 Q: Nếu có thắc mắc hoặc khiếu nại thì liên hệ ai?
-A: Em có thể dùng chức năng "Phản hồi" trên App, hoặc gọi hotline 38420372, hoặc gặp trực tiếp bộ phận tư vấn tại văn phòng.
+A: Em có thể dùng chức năng "Phản hồi" trên App, hoặc gọi hotline 038420372, hoặc gặp trực tiếp bộ phận tư vấn tại văn phòng.
+
+Q: Danh sách các lớp học đang mở?
+A: Bạn hãy qua phần trang chủ, chọn "Cửa hàng khoá học" để xem danh sách các khoá học đang mở.
