@@ -33,7 +33,7 @@ class ChatOrchestrator:
         Danh sách Chi nhánh hợp lệ: {valid_branches}
         Danh sách Khối hợp lệ: {valid_grades}
         
-        Nếu người dùng nhắc đến địa điểm (Hà Nội, Sài Gòn...), hãy map về Chi nhánh tương ứng.
+        Nếu người dùng nhắc đến địa điểm hoặc địa chỉ (Hà Nội, Sài Gòn, Số 1 Đại Cồ Việt...), hãy map về Chi nhánh tương ứng.
         Nếu không tìm thấy, trả về "None".
         
         Câu nói: "{text}"
@@ -41,7 +41,7 @@ class ChatOrchestrator:
         Output format: Branch|Grade
         Ví dụ: 
         "Em học lớp 10 ở Hà Nội" -> Thăng Long Hà Nội|10
-        "Mình ở đà nẵng" -> Thăng Long Đà Nẵng|None
+        "Mình ở số 1 đại cồ việt" -> Số 1 Đại Cồ Việt|None
         "Không có gì" -> None|None
         """
         self.extraction_prompt = PromptTemplate.from_template(extraction_template)
@@ -159,44 +159,27 @@ class ChatOrchestrator:
         if intent == "DATABASE_QUERY":
             # 5. Xử lý tra cứu DB
             
-            # Kiểm tra thiếu info
-            missing_info = []
-            if not current_branch:
-                missing_info.append("Chi nhánh")
-            if not current_grade:
-                missing_info.append("Khối")
+            # Kiểm tra thiếu info - SEQUENTIAL FLOW
             
-            if missing_info:
-                # Lưu câu hỏi hiện tại làm pending query (nếu chưa có hoặc ghi đè)
-                # Nếu câu hỏi hiện tại chỉ là câu cung cấp thông tin (ngắn), 
-                # thì nên giữ pending_query CŨ.
-                # Logic: Nếu question dài > 10 chars hoặc có vẻ là câu hỏi mới thì replace.
-                # Đơn giản: Nếu question KHÔNG chứa thông tin extract được (tức là câu hỏi mới) -> Replace.
-                # Nếu question CHỨA thông tin extract được -> Giữ pending query cũ.
-                
-                should_update_pending = True
-                if pending_query and (extracted_branch or extracted_grade):
-                    should_update_pending = False
-                
-                if should_update_pending:
-                    session_manager.update_context(session_id, pending_query=question)
-                
-                info_req = ", ".join(missing_info)
-                
-                # Fetch options for the user to choose
-                options = []
-                if "Chi nhánh" in info_req:
-                    options.extend(await external_api_service.get_all_branches())
-                if "Khối" in info_req:
-                    # Nếu thiếu cả hai, có thể list cả hai hoặc ưu tiên list branch trước?
-                    # Để đơn giản, nếu thiếu cả hai, ta chi list Branch trước để user chọn Branch, 
-                    # sau đó user chọn Grade sau. Hoặc merge list.
-                    # Nhu cầu thực tế: User chọn Branch -> Chọn Grade.
-                    # Nếu thiếu Branch, ưu tiên show Branch options.
-                    if not options: # Chỉ show grade nếu chưa có options (tức là đã có branch nhưng thiếu grade)
-                         options.extend(await external_api_service.get_all_grades())
-                
-                return f"Để tư vấn chính xác, thầy/cô cần biết em đang quan tâm đến {info_req} nào? Em vui lòng chọn hoặc cung cấp thêm nhé.", session_id, options
+            # Save pending query logic (restored)
+            should_update_pending = True
+            if pending_query and (extracted_branch or extracted_grade):
+                should_update_pending = False
+            
+            if should_update_pending:
+                session_manager.update_context(session_id, pending_query=question)
+
+            # 1. Check Branch (Address) First
+            if not current_branch:
+                # Fetch options (Addresses)
+                options = await external_api_service.get_all_branches()
+                return "Để tư vấn chính xác, bạn muốn được tư vấn tại địa chỉ nào?", session_id, options
+
+            # 2. Check Grade Second (Only if Branch is present)
+            if not current_grade:
+                 # Fetch options (Grades)
+                 options = await external_api_service.get_all_grades()
+                 return "Bạn đang quan tâm đến khối lớp nào?", session_id, options
             
             # Đủ info
             # Nếu có pending query và user hỏi câu mới -> Ưu tiên câu mới

@@ -45,7 +45,11 @@ class ExternalAPIService:
         
         b_name_lower = branch_name.lower()
         for b in self.cached_data["branches"]:
-            if b_name_lower in b["name"].lower() or b["name"].lower() in b_name_lower:
+            # Check name or address
+            if (b_name_lower in b["name"].lower()) or \
+               (b["name"].lower() in b_name_lower) or \
+               (b_name_lower in b["address"].lower()) or \
+               (b["address"].lower() in b_name_lower):
                 return True
         return False
 
@@ -68,7 +72,8 @@ class ExternalAPIService:
         await self._ensure_data()
         if not self.cached_data or "branches" not in self.cached_data:
             return []
-        return [b["name"] for b in self.cached_data["branches"]]
+        # Return addresses as requested by user
+        return [b["address"] for b in self.cached_data["branches"]]
 
     async def get_all_grades(self) -> List[str]:
         """Lấy danh sách mã khối."""
@@ -91,8 +96,15 @@ class ExternalAPIService:
         branch_id = None
         branch_info = None
         for b in self.cached_data.get("branches", []):
-            if branch.lower() in b["name"].lower() or b["name"].lower() in branch.lower():
+            # Check name or address
+            if (branch.lower() in b["name"].lower()) or \
+               (b["name"].lower() in branch.lower()) or \
+               (branch.lower() in b["address"].lower()) or \
+               (b["address"].lower() in branch.lower()):
                 branch_id = b["branchId"]
+                
+                # Update branch info name if user used address, 
+                # but we still want to keep the canonical name in context if needed.
                 branch_info = b
                 break
         
