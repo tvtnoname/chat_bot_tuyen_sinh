@@ -11,6 +11,7 @@ class RAGService:
     def __init__(self):
         self.qa_chain = None
         self.vector_store = None
+        self.ready = False
 
     async def initialize(self):
         """Khởi tạo pipeline RAG."""
@@ -63,15 +64,18 @@ class RAGService:
                 return_source_documents=False,
                 chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
             )
+            self.ready = True
             logging.info("Hệ thống RAG đã sẵn sàng hoạt động.")
         except Exception as e:
             logging.error(f"Lỗi khởi động RAG: {e}")
-            raise e
+            self.ready = False
+            # Không raise e để app vẫn start được
+            # raise e
 
     def get_answer(self, question: str) -> str:
         """Trả lời câu hỏi."""
-        if not self.qa_chain:
-            raise Exception("Hệ thống chưa sẵn sàng.")
+        if not self.ready or not self.qa_chain:
+            return "Hệ thống tra cứu tài liệu chưa sẵn sàng. Vui lòng liên hệ hotline để được hỗ trợ."
         
         response = self.qa_chain.invoke({"query": question})
         return response["result"]

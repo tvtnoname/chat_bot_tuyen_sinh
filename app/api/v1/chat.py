@@ -22,5 +22,8 @@ async def chat(input_data: ChatInput):
         return {"answer": answer, "session_id": session_id}
     except Exception as e:
         logging.error(f"Lỗi xử lý: {e}")
-        # Có thể handle cụ thể các lỗi khác nếu cần
-        raise HTTPException(status_code=500, detail="Lỗi máy chủ nội bộ")
+        # Trả về thông báo lỗi thân thiện thay vì 500
+        return {
+            "answer": f"Hệ thống đang gặp sự cố kết nối hoặc lỗi nội bộ. Vui lòng thử lại sau. (Chi tiết kỹ thuật: {str(e)})", 
+            "session_id": input_data.session_id or "error_session"
+        }
