@@ -14,12 +14,17 @@ async def chat(input_data: ChatInput):
         # Sử dụng ChatOrchestrator
         from app.services.chat.orchestrator import chat_orchestrator
         
-        answer, session_id, options = await chat_orchestrator.process_message(
+        answer, session_id, options, courses = await chat_orchestrator.process_message(
             input_data.question, 
             input_data.session_id
         )
         
-        return {"answer": answer, "session_id": session_id, "options": options}
+        return {
+            "answer": answer, 
+            "session_id": session_id, 
+            "options": options,
+            "courses": courses
+        }
     except Exception as e:
         logging.error(f"Lỗi xử lý: {e}")
         # Trả về thông báo lỗi thân thiện thay vì 500

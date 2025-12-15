@@ -1,5 +1,7 @@
 import logging
-from typing import Tuple
+import json
+import re
+from typing import Tuple, List, Any
 from app.services.rag.engine import rag_service
 from app.services.external.school_api import external_api_service
 from app.services.chat.memory import session_manager
@@ -13,6 +15,7 @@ class ChatOrchestrator:
         self.llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
         
         # Prompt để tổng hợp câu trả lời từ dữ liệu
+        # Prompt để tổng hợp câu trả lời từ dữ liệu
         data_response_template = """
         Bạn là trợ lý ảo tuyển sinh.
         Dựa vào dữ liệu sau đây để trả lời câu hỏi của học sinh.
@@ -23,7 +26,26 @@ class ChatOrchestrator:
         
         Câu hỏi: {question}
         
-        Trả lời (ngắn gọn, đầy đủ, thân thiện):
+        YÊU CẦU ĐẦU RA (QUAN TRỌNG):
+        Hãy trả về kết quả dưới dạng JSON object hợp lệ (không có markdown fence ```json).
+        Cấu trúc JSON:
+        {{
+            "answer": "Câu trả lời ngắn gọn, thân thiện bằng lời (text)",
+            "courses": [
+                {{
+                    "id": "Mã lớp hoặc tạo ngẫu nhiên nếu không có",
+                    "name": "Tên lớp/khoá học",
+                    "schedule": "Lịch học (Thứ, Ca, Giờ)",
+                    "location": "Phòng học - Chi nhánh",
+                    "price": "Học phí (VNĐ)",
+                    "status": "Trạng thái (Đang diễn ra/Sắp khai giảng)",
+                    "endDate": "Ngày kết thúc"
+                }}
+            ]
+        }}
+        
+        Nếu không có khóa học nào trong dữ liệu, "courses" là danh sách rỗng [].
+        Chỉ trả về JSON, không thêm bất kỳ lời dẫn nào khác.
         """
         self.data_response_prompt = PromptTemplate.from_template(data_response_template)
 
@@ -95,16 +117,33 @@ class ChatOrchestrator:
             logging.error(f"Lỗi extract entities: {e}")
             return None, None
 
-    async def _generate_data_response(self, question: str, data: dict) -> str:
-        """Sinh câu trả lời từ dữ liệu API."""
+    async def _generate_data_response(self, question: str, data: dict) -> Tuple[str, List[dict]]:
+        """Sinh câu trả lời từ dữ liệu API dưới dạng text và courses list."""
         chain = self.data_response_prompt | self.llm
         result = await chain.ainvoke({"data": str(data), "question": question})
-        return result.content
+        content = result.content.strip()
+        
+        # Clean up markdown code blocks if present
+        if content.startswith("```json"):
+            content = content.replace("```json", "", 1)
+        if content.startswith("```"):
+            content = content.replace("```", "", 1)
+        if content.endswith("```"):
+            content = content.replace("```", "", 1)
+            
+        try:
+            parsed_json = json.loads(content.strip())
+            answer = parsed_json.get("answer", "Xin lỗi, tôi không thể xử lý dữ liệu.")
+            courses = parsed_json.get("courses", [])
+            return answer, courses
+        except json.JSONDecodeError:
+            logging.error(f"Lỗi parse JSON từ LLM: {content}")
+            return content, [] # Fallback: return raw content as answer
 
-    async def process_message(self, question: str, session_id: str = None) -> Tuple[str, str, list]:
+    async def process_message(self, question: str, session_id: str = None) -> Tuple[str, str, list, list]:
         """
         Xử lý tin nhắn chính.
-        Trả về (câu trả lời, session_id, options).
+        Trả về (câu trả lời, session_id, options, courses).
         """
         # 1. Init Session
         if not session_id:
@@ -128,10 +167,11 @@ class ChatOrchestrator:
             data = await external_api_service.get_filtered_data(branch=current_branch, grade=current_grade)
             # Trả lời câu hỏi treo
             # Trả lời câu hỏi treo
-            answer = await self._generate_data_response(pending_query, data)
+            # Trả lời câu hỏi treo
+            answer, courses = await self._generate_data_response(pending_query, data)
             # Clear pending query
             session_manager.update_context(session_id, pending_query="") 
-            return answer, session_id, []
+            return answer, session_id, [], courses
 
         # 4. Phân loại Intent cho câu hỏi hiện tại
         intent = await intent_classifier.classify(question)
@@ -154,7 +194,7 @@ class ChatOrchestrator:
                 intent = "DATABASE_QUERY" # Force intent change
             else:
                 answer = rag_service.get_answer(question)
-                return answer, session_id, []
+                return answer, session_id, [], []
         
         if intent == "DATABASE_QUERY":
             # 5. Xử lý tra cứu DB
@@ -173,13 +213,13 @@ class ChatOrchestrator:
             if not current_branch:
                 # Fetch options (Addresses)
                 options = await external_api_service.get_all_branches()
-                return "Để tư vấn chính xác, bạn muốn được tư vấn tại địa chỉ nào?", session_id, options
+                return "Để tư vấn chính xác, bạn muốn được tư vấn tại địa chỉ nào?", session_id, options, []
 
             # 2. Check Grade Second (Only if Branch is present)
             if not current_grade:
                  # Fetch options (Grades)
                  options = await external_api_service.get_all_grades()
-                 return "Bạn đang quan tâm đến khối lớp nào?", session_id, options
+                 return "Bạn đang quan tâm đến khối lớp nào?", session_id, options, []
             
             # Đủ info
             # Nếu có pending query và user hỏi câu mới -> Ưu tiên câu mới
@@ -187,12 +227,12 @@ class ChatOrchestrator:
             # Ưu tiên câu hỏi hiện tại.
             
             data = await external_api_service.get_filtered_data(branch=current_branch, grade=current_grade)
-            answer = await self._generate_data_response(question, data)
+            answer, courses = await self._generate_data_response(question, data)
             # Clear pending if any
             if pending_query:
                 session_manager.update_context(session_id, pending_query="")
-            return answer, session_id, []
-
-        return "Xin lỗi, hệ thống đang gặp sự cố không xác định được yêu cầu.", session_id, []
+            return answer, session_id, [], courses
+        
+        return "Xin lỗi, hệ thống đang gặp sự cố không xác định được yêu cầu.", session_id, [], []
 
 chat_orchestrator = ChatOrchestrator()
