@@ -160,6 +160,7 @@ class ExternalAPIService:
                     schedules.append(f"Thứ {s.get('dayOfWeek')} - {slot.get('name')} ({slot.get('startTime')}-{slot.get('endTime')}) tại {room.get('name')}")
 
                 class_info = {
+                    "id": c["classId"],
                     "name": c["name"],
                     "subject": c.get("subject", {}).get("name"),
                     "fee": c["fee"],
