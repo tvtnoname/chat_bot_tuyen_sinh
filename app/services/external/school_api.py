@@ -1,0 +1,171 @@
+import logging
+import urllib.request
+import json
+import asyncio
+from typing import Dict, List, Optional, Any
+
+from app.core.config import settings
+
+class ExternalAPIService:
+    def __init__(self):
+        self.api_url = settings.SCHOOL_API_URL
+        self.cached_data = None
+
+    def _sync_fetch(self):
+        try:
+            with urllib.request.urlopen(self.api_url) as url:
+                return json.loads(url.read().decode())
+        except Exception as e:
+            raise e
+
+    async def fetch_all_data(self) -> Dict[str, Any]:
+        """Lấy toàn bộ dữ liệu từ API thật."""
+        if self.cached_data:
+            return self.cached_data
+
+        try:
+            logging.info(f"Đang lấy dữ liệu từ {self.api_url}...")
+            # Run blocking call in a separate thread
+            self.cached_data = await asyncio.to_thread(self._sync_fetch)
+            logging.info("Lấy dữ liệu thành công.")
+            return self.cached_data
+        except Exception as e:
+            logging.error(f"Lỗi khi gọi API tuyển sinh: {e}")
+            return {}
+
+    async def _ensure_data(self):
+        if not self.cached_data:
+            await self.fetch_all_data()
+
+    async def check_valid_branch(self, branch_name: str) -> bool:
+        """Kiểm tra tên chi nhánh có hợp lệ không."""
+        await self._ensure_data()
+        if not self.cached_data or "branches" not in self.cached_data:
+            return False
+        
+        b_name_lower = branch_name.lower()
+        for b in self.cached_data["branches"]:
+            if b_name_lower in b["name"].lower() or b["name"].lower() in b_name_lower:
+                return True
+        return False
+
+    async def check_valid_grade(self, grade_name: str) -> bool:
+        """Kiểm tra khối học có hợp lệ không."""
+        await self._ensure_data()
+        if not self.cached_data or "grades" not in self.cached_data:
+            return False
+
+        # grade_name có thể là "10", "Lớp 10"...
+        # API grades: "code": 10, "name": "Lớp 10"
+        for g in self.cached_data["grades"]:
+            val_code = str(g["code"])
+            if val_code in grade_name or grade_name in val_code or grade_name in g["name"]:
+                return True
+        return False
+
+    async def get_all_branches(self) -> List[str]:
+        """Lấy danh sách tên tất cả chi nhánh."""
+        await self._ensure_data()
+        if not self.cached_data or "branches" not in self.cached_data:
+            return []
+        return [b["name"] for b in self.cached_data["branches"]]
+
+    async def get_all_grades(self) -> List[str]:
+        """Lấy danh sách mã khối."""
+        await self._ensure_data()
+        if not self.cached_data or "grades" not in self.cached_data:
+            return []
+        # Trả về cả tên và code để prompt hiểu? Hoặc code. 
+        # API trả "10", "11", "12" là OK.
+        return [str(g["code"]) for g in self.cached_data["grades"]]
+
+    async def get_filtered_data(self, branch: str, grade: str) -> Dict[str, Any]:
+        """Lấy dữ liệu đã lọc theo chi nhánh và khối."""
+        await self._ensure_data()
+        if not self.cached_data:
+            return {"message": "Không thể kết nối đến hệ thống dữ liệu."}
+
+        logging.info(f"Đang lọc dữ liệu cho Chi nhánh: {branch}, Khối: {grade}")
+
+        # 1. Resolve Branch ID
+        branch_id = None
+        branch_info = None
+        for b in self.cached_data.get("branches", []):
+            if branch.lower() in b["name"].lower() or b["name"].lower() in branch.lower():
+                branch_id = b["branchId"]
+                branch_info = b
+                break
+        
+        # 2. Resolve Grade ID
+        grade_id = None
+        grade_info = None
+        for g in self.cached_data.get("grades", []):
+            val_code = str(g["code"])
+            if val_code in grade or grade in val_code or grade in g["name"]:
+                grade_id = g["gradeId"]
+                grade_info = g
+                break
+
+        if branch_id is None:
+            return {"message": f"Không tìm thấy chi nhánh nào khớp với '{branch}'."}
+        if grade_id is None:
+            return {"message": f"Không tìm thấy khối nào khớp với '{grade}'."}
+
+        # 3. Filter Classes
+        filtered_classes = []
+        relevant_class_ids = set()
+        
+        for c in self.cached_data.get("classes", []):
+            # Cần check null safety
+            if c.get("branchId") == branch_id and c.get("gradeId") == grade_id:
+                # Format schedule info nicely
+                schedules = []
+                for s in c.get("classSchedules", []):
+                    slot = s.get("lessonSlot", {})
+                    room = s.get("room", {})
+                    schedules.append(f"Thứ {s.get('dayOfWeek')} - {slot.get('name')} ({slot.get('startTime')}-{slot.get('endTime')}) tại {room.get('name')}")
+
+                class_info = {
+                    "name": c["name"],
+                    "subject": c.get("subject", {}).get("name"),
+                    "fee": c["fee"],
+                    "schedules": schedules,
+                    "startDate": c["startDate"],
+                    "endDate": c["endDate"],
+                    "status": c["status"]
+                }
+                filtered_classes.append(class_info)
+                relevant_class_ids.add(c["classId"])
+
+        # 4. Find Teachers for these classes
+        relevant_teachers = []
+        for t in self.cached_data.get("teachers", []):
+            teach_assignments = t.get("teachingAssignments", [])
+            matches = [assign for assign in teach_assignments if assign.get("classId") in relevant_class_ids]
+            if matches:
+                 relevant_teachers.append({
+                     "name": t.get("user", {}).get("fullName"),
+                     "qualification": t.get("qualification"),
+                     "experience": t.get("experienceYears"),
+                     "subjects": [ts.get("subject", {}).get("name") for ts in t.get("teacherSubjects", [])]
+                 })
+
+        # 5. Build Result
+        result = {
+            "query_context": {
+                "branch": branch_info["name"],
+                "address": branch_info["address"],
+                "grade": grade_info["name"]
+            },
+            "classes_found": filtered_classes,
+            "teachers": relevant_teachers,
+            "holidays": [h["name"] + f" ({h['description']})" for h in self.cached_data.get("holidays", [])], # Global holidays
+            "semesters": [s["name"] for s in self.cached_data.get("semesters", [])]
+        }
+        
+        if not filtered_classes:
+             result["message"] = "Hiện tại chưa có lớp học nào mở cho Khối và Chi nhánh này."
+
+        return result
+
+external_api_service = ExternalAPIService()

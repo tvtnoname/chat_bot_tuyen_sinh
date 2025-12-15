@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.models.schemas import ChatInput, ChatOutput
-from app.services.rag import rag_service
+from app.schemas.chat import ChatInput, ChatOutput
 import logging
 
 router = APIRouter()
@@ -12,10 +11,16 @@ async def chat(input_data: ChatInput):
         raise HTTPException(status_code=400, detail="Câu hỏi không được để trống.")
 
     try:
-        answer = rag_service.get_answer(input_data.question)
-        return {"answer": answer}
+        # Sử dụng ChatOrchestrator
+        from app.services.chat.orchestrator import chat_orchestrator
+        
+        answer, session_id = await chat_orchestrator.process_message(
+            input_data.question, 
+            input_data.session_id
+        )
+        
+        return {"answer": answer, "session_id": session_id}
     except Exception as e:
         logging.error(f"Lỗi xử lý: {e}")
-        if "Hệ thống chưa sẵn sàng" in str(e):
-             raise HTTPException(status_code=503, detail="Hệ thống chưa sẵn sàng.")
+        # Có thể handle cụ thể các lỗi khác nếu cần
         raise HTTPException(status_code=500, detail="Lỗi máy chủ nội bộ")

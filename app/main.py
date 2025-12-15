@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import router as api_router
-from app.services.rag import rag_service
+from app.api.v1.chat import router as chat_router
+from app.services.rag.engine import rag_service
 import logging
 
 # Cấu hình logging
@@ -19,7 +19,7 @@ app.add_middleware(
 )
 
 # Đăng ký router
-app.include_router(api_router, prefix="/api")
+app.include_router(chat_router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def startup_event():
