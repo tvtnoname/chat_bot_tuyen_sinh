@@ -13,12 +13,12 @@ class IntentClassifier:
         
         1. "DATABASE_QUERY": Câu hỏi yêu cầu tra cứu dữ liệu cụ thể, động, thường xuyên thay đổi như:
            - Chi nhánh, địa chỉ cụ thể nào đó.
-           - Khoá học, môn học, lớp học có những gì.
+           - Khoá học có những gì.
            - Lịch nghỉ lễ, lịch học, ca học.
            - Phòng học ở đâu.
            - Danh sách giáo viên.
            - Thông tin về học kì (semester).
-           Ví dụ: "Lịch học toán lớp 10 thế nào?", "Chi nhánh Hà Nội có những thầy cô nào?", "Mai có được nghỉ không?".
+           Ví dụ: "Lịch học toán lớp 10 thế nào?", "Chi nhánh có những thầy cô nào?", "Mai có được nghỉ không?".
 
         2. "GENERAL_CHAT": Các câu hỏi chung chung, chào hỏi, hoặc kiến thức tĩnh có sẵn trong tài liệu tuyển sinh chung (quy chế, giới thiệu chung, học phí chung...).
            Ví dụ: "Xin chào", "Trung tâm thành lập năm nào?", "Học phí quy định chung ra sao?", "Em muốn đăng ký học".

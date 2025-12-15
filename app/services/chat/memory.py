@@ -13,7 +13,7 @@ class SessionManager:
             "branch": None,
             "grade": None,
             "subject": None,
-            "pending_query": None, # Câu hỏi đang chờ thông tin
+            "pending_query": None,
             "history": [] 
         }
         return session_id
