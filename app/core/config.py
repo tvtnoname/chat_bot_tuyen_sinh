@@ -11,7 +11,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class Settings:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     KNOWLEDGE_BASE_PATH = "data/knowledge_base.txt"
-    MODEL_NAME = "gemini-1.5-flash-001"
+    MODEL_NAME = "gemini-flash-latest"
+
     EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
     SCHOOL_API_URL = os.getenv("SCHOOL_API_URL", "http://localhost:8080/api/common-data")
 
