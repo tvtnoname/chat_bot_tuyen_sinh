@@ -51,29 +51,32 @@ class ChatOrchestrator:
 
         # Prompt để trích xuất thông tin (Entity Extraction)
         extraction_template = """
-        Trích xuất thông tin "Chi nhánh" (Branch) và "Khối" (Grade) từ câu nói của người dùng.
+        Trích xuất thông tin "Chi nhánh" (Branch), "Khối" (Grade) và "Môn học" (Subject) từ câu nói của người dùng.
         Danh sách Chi nhánh hợp lệ: {valid_branches}
         Danh sách Khối hợp lệ: {valid_grades}
+        Danh sách Môn hợp lệ: {valid_subjects}
         
         Nếu người dùng nhắc đến địa điểm hoặc địa chỉ (Hà Nội, Sài Gòn, Số 1 Đại Cồ Việt...), hãy map về Chi nhánh tương ứng.
         Nếu không tìm thấy, trả về "None".
         
         Câu nói: "{text}"
         
-        Output format: Branch|Grade
+        Output format: Branch|Grade|Subject
         Ví dụ: 
-        "Em học lớp 10 ở Hà Nội" -> Thăng Long Hà Nội|10
-        "Mình ở số 1 đại cồ việt" -> Số 1 Đại Cồ Việt|None
-        "Không có gì" -> None|None
+        "Em học lớp 10 ở Hà Nội" -> Thăng Long Hà Nội|10|None
+        "Mình ở số 1 đại cồ việt muốn học toán" -> Số 1 Đại Cồ Việt|None|Toán
+        "Các môn học" -> None|None|None
+        "Lớp Toán 10" -> None|10|Toán
         """
         self.extraction_prompt = PromptTemplate.from_template(extraction_template)
 
-    async def _extract_entities(self, text: str) -> Tuple[str, str]:
-        """Trích xuất Branch và Grade từ text."""
+    async def _extract_entities(self, text: str) -> Tuple[str, str, str]:
+        """Trích xuất Branch, Grade và Subject từ text."""
         try:
             # Lấy danh sách hợp lệ từ API (cache)
             valid_branches = await external_api_service.get_all_branches()
             valid_grades = await external_api_service.get_all_grades()
+            valid_subjects = await external_api_service.get_all_subjects()
             
             # Default fallback nếu API chưa có dữ liệu
             if not valid_branches:
@@ -85,6 +88,7 @@ class ChatOrchestrator:
             formatted_prompt = self.extraction_prompt.format(
                 valid_branches=str(valid_branches),
                 valid_grades=str(valid_grades),
+                valid_subjects=str(valid_subjects),
                 text=text
             )
             
@@ -102,20 +106,29 @@ class ChatOrchestrator:
             chain = self.extraction_prompt | self.llm
             result = await chain.ainvoke({
                 "valid_branches": str(valid_branches),
-                "valid_grades": str(valid_grades), 
+                "valid_grades": str(valid_grades),
+                "valid_subjects": str(valid_subjects),
                 "text": text
             })
             
             content = result.content.strip()
             if "|" in content:
-                branch, grade = content.split("|")
-                branch = branch.strip() if branch.strip() != "None" else None
-                grade = grade.strip() if grade.strip() != "None" else None
-                return branch, grade
-            return None, None
+                parts = content.split("|")
+                if len(parts) >= 3:
+                     branch = parts[0].strip() if parts[0].strip() != "None" else None
+                     grade = parts[1].strip() if parts[1].strip() != "None" else None
+                     subject = parts[2].strip() if parts[2].strip() != "None" else None
+                     return branch, grade, subject
+                elif len(parts) == 2:
+                     # Fallback for old prompt format just in case
+                     branch = parts[0].strip() if parts[0].strip() != "None" else None
+                     grade = parts[1].strip() if parts[1].strip() != "None" else None
+                     return branch, grade, None
+
+            return None, None, None
         except Exception as e:
             logging.error(f"Lỗi extract entities: {e}")
-            return None, None
+            return None, None, None
 
     async def _generate_data_response(self, question: str, data: dict) -> Tuple[str, List[dict]]:
         """Sinh câu trả lời từ dữ liệu API dưới dạng text và courses list."""
@@ -151,20 +164,21 @@ class ChatOrchestrator:
         
         # 2. Extract Entities & Update Context
         # Luôn cố gắng trích xuất thông tin dù ý định là gì
-        extracted_branch, extracted_grade = await self._extract_entities(question)
-        if extracted_branch or extracted_grade:
-            session_manager.update_context(session_id, branch=extracted_branch, grade=extracted_grade)
+        extracted_branch, extracted_grade, extracted_subject = await self._extract_entities(question)
+        if extracted_branch or extracted_grade or extracted_subject:
+            session_manager.update_context(session_id, branch=extracted_branch, grade=extracted_grade, subject=extracted_subject)
 
         # Lấy context hiện tại
         context = session_manager.get_context(session_id)
         current_branch = context.get("branch")
         current_grade = context.get("grade")
+        current_subject = context.get("subject")
         pending_query = context.get("pending_query")
 
         # 3. Check Pending Query
         # Nếu đang có câu hỏi treo và hiện tại đã đủ thông tin -> Trả lời câu hỏi treo
-        if pending_query and current_branch and current_grade:
-            data = await external_api_service.get_filtered_data(branch=current_branch, grade=current_grade)
+        if pending_query and current_branch and current_grade and current_subject:
+            data = await external_api_service.get_filtered_data(branch=current_branch, grade=current_grade, subject=current_subject)
             # Trả lời câu hỏi treo
             # Trả lời câu hỏi treo
             # Trả lời câu hỏi treo
@@ -203,7 +217,8 @@ class ChatOrchestrator:
             
             # Save pending query logic (restored)
             should_update_pending = True
-            if pending_query and (extracted_branch or extracted_grade):
+            should_update_pending = True
+            if pending_query and (extracted_branch or extracted_grade or extracted_subject):
                 should_update_pending = False
             
             if should_update_pending:
@@ -220,13 +235,24 @@ class ChatOrchestrator:
                  # Fetch options (Grades)
                  options = await external_api_service.get_all_grades()
                  return "Bạn đang quan tâm đến khối lớp nào?", session_id, options, []
+
+            # 3. Check Subject Third (Only if Branch & Grade are present)
+            # This ensures we don't show cards immediately for "Các môn học" query or implicit logic
+            if not current_subject:
+                 subjects = await external_api_service.get_all_subjects()
+                 return "Chúng tôi có các môn học sau, bạn quan tâm môn nào?", session_id, subjects, []
             
             # Đủ info
             # Nếu có pending query và user hỏi câu mới -> Ưu tiên câu mới
             # Hoặc thực hiện cả hai? Phức tạp.
             # Ưu tiên câu hỏi hiện tại.
             
-            data = await external_api_service.get_filtered_data(branch=current_branch, grade=current_grade)
+            # Đủ info
+            # Nếu có pending query và user hỏi câu mới -> Ưu tiên câu mới
+            # Hoặc thực hiện cả hai? Phức tạp.
+            # Ưu tiên câu hỏi hiện tại.
+            
+            data = await external_api_service.get_filtered_data(branch=current_branch, grade=current_grade, subject=current_subject)
             answer, courses = await self._generate_data_response(question, data)
             # Clear pending if any
             if pending_query:

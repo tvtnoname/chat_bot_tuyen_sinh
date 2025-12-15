@@ -84,8 +84,23 @@ class ExternalAPIService:
         # API trả "10", "11", "12" là OK.
         return [str(g["code"]) for g in self.cached_data["grades"]]
 
-    async def get_filtered_data(self, branch: str, grade: str) -> Dict[str, Any]:
-        """Lấy dữ liệu đã lọc theo chi nhánh và khối."""
+    async def get_all_subjects(self) -> List[str]:
+        """Lấy danh sách các môn học có trong hệ thống."""
+        await self._ensure_data()
+        if not self.cached_data:
+            return []
+        
+        subjects = set()
+        # Collect subjects from classes
+        for c in self.cached_data.get("classes", []):
+            subj_name = c.get("subject", {}).get("name")
+            if subj_name:
+                subjects.add(subj_name)
+        
+        return list(subjects)
+
+    async def get_filtered_data(self, branch: str, grade: str, subject: str = None) -> Dict[str, Any]:
+        """Lấy dữ liệu đã lọc theo chi nhánh, khối và môn học (option)."""
         await self._ensure_data()
         if not self.cached_data:
             return {"message": "Không thể kết nối đến hệ thống dữ liệu."}
@@ -130,6 +145,13 @@ class ExternalAPIService:
         for c in self.cached_data.get("classes", []):
             # Cần check null safety
             if c.get("branchId") == branch_id and c.get("gradeId") == grade_id:
+                # Filter by Subject if provided
+                if subject:
+                    c_subject = c.get("subject", {}).get("name", "")
+                    # Loose matching for subject
+                    if subject.lower() not in c_subject.lower() and c_subject.lower() not in subject.lower():
+                        continue
+
                 # Format schedule info nicely
                 schedules = []
                 for s in c.get("classSchedules", []):
