@@ -145,14 +145,12 @@ class ChatOrchestrator:
         if not session_id:
             session_id = session_manager.create_session()
         
-        # 0. Pre-process: Extract entities to update state
-        # Điều này cực kỳ quan trọng để Agent "thấy" được lựa chọn của user (Branch/Grade)
+        # 0. Pre-process state update (KEEP EXISTING)
         extracted_branch, extracted_grade, extracted_subject = await self._extract_entities(question)
         if extracted_branch or extracted_grade or extracted_subject:
             session_manager.update_context(session_id, branch=extracted_branch, grade=extracted_grade, subject=extracted_subject)
         
         # 1. Prepare Context & System Prompt
-        # Fetch valid options to inject into System Prompt
         valid_branches = await external_api_service.get_all_branches()
         valid_grades = await external_api_service.get_all_grades()
         
@@ -161,82 +159,97 @@ Nhiệm vụ: Tư vấn khóa học, học phí và giải đáp thắc mắc.
 
 CÁC CÔNG CỤ (TOOLS):
 1. `search_classes(branch, grade, subject)`: Dùng tìm kiếm lớp học.
-   - ƯU TIÊN HÀNG ĐẦU.
    - BẮT BUỘC phải có `branch` (Chi nhánh) và `grade` (Khối lớp) trước khi gọi.
    
 2. `ask_for_branch()`: Gọi công cụ này nếu thiếu thông tin Chi nhánh (Branch).
-   - KHÔNG được hỏi bằng lời. BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
+   - BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
+   - KHÔNG ĐƯỢC hỏi bằng lời (text) dạng "Bạn muốn tìm ở chi nhánh nào?". HÃY GỌI TOOL.
    
 3. `ask_for_grade()`: Gọi công cụ này nếu thiếu thông tin Khối lớp (Grade).
-   - KHÔNG được hỏi bằng lời. BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
+   - BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
+   - KHÔNG ĐƯỢC hỏi bằng lời. HÃY GỌI TOOL.
    
-4. `ask_for_subject()`: Gọi công cụ này nếu thiếu thông tin Môn học (Subject), hoặc người dùng muốn xem danh sách môn.
-   - NÊN gọi nếu chưa biết môn, để kết quả tra cứu chính xác hơn.
+4. `ask_for_subject()`: Gọi công cụ này nếu thiếu dữ liệu Môn học, hoặc người dùng muốn xem danh sách môn.
+   - NÊN gọi nếu chưa biết môn.
    
 5. `search_general_info(query)`: Dùng cho câu hỏi chung, quy định, địa chỉ chung chung, hoặc chào hỏi.
 
-QUY TRÌNH:
-- Nếu người dùng chào hỏi -> Gọi `search_general_info` hoặc tự trả lời.
-- Nếu người dùng hỏi lớp học:
-  - Kiểm tra `branch`? Chưa có -> Gọi `ask_for_branch()`.
-  - Kiểm tra `grade`? Chưa có -> Gọi `ask_for_grade()`.
-  - Kiểm tra `subject`? Chưa có -> NÊN Gọi `ask_for_subject()`.
-  - Nếu đủ -> Gọi `search_classes`.
-- Luôn ưu tiên thông tin mới nhất trong câu hỏi.
+QUY TẮC QUAN TRỌNG:
+- NẾU THIẾU THÔNG TIN (Branch/Grade): ĐỪNG giải thích hay xin lỗi. GỌI TOOL NGAY LẬP TỨC.
+- Ưu tiên gọi Tool hơn là trả lời Text.
+- Nếu người dùng nói câu khẳng định ngắn ("ok", "hiển thị đi", "cho tôi xem"), HÃY DỰA VÀO LỊCH SỬ CHAT để hiểu họ muốn gì (thường là đồng ý cho bạn gọi tool hoặc hiển thị danh sách).
 
 Lịch sử chat:
-(Hệ thống tự quản lý memory)
 """
         messages = [SystemMessage(content=system_prompt)]
-        context = session_manager.get_context(session_id)
         
-        # Add simple history if available (optional enhancement)
-        # Inject current known slots to help Agent decide
-        current_slots_info = f"Current Knowledge: Branch={context.get('branch')}, Grade={context.get('grade')}, Subject={context.get('subject')}"
+        # Inject History
+        raw_history = session_manager.get_history(session_id)
+        for msg in raw_history:
+            if msg["role"] == "user":
+                messages.append(HumanMessage(content=msg["content"]))
+            else:
+                messages.append(AIMessage(content=msg["content"]))
+
+        # Inject Current Context
+        context = session_manager.get_context(session_id)
+        current_slots_info = f"SYSTEM_NOTE involved entities so far: Branch={context.get('branch')}, Grade={context.get('grade')}, Subject={context.get('subject')}"
         messages.append(SystemMessage(content=current_slots_info))
 
+        # Add Current User Message
         messages.append(HumanMessage(content=question))
+        # Save user msg to history
+        session_manager.add_message(session_id, "user", question)
 
         # 2. Invoke LLM with Tools
         response = await self.llm_with_tools.ainvoke(messages)
 
         # 3. Handle Response
+        final_answer_text = ""
+        
         if response.tool_calls:
-            tool_call = response.tool_calls[0] # Handle first tool call
+            tool_call = response.tool_calls[0]
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
             
             logging.info(f"Agent chose tool: {tool_name} with args: {tool_args}")
             
             if tool_name == "search_classes":
-                # Execute tool
                 data = await search_classes.ainvoke(tool_args)
-                # Format response for App
                 answer, courses = await self._generate_data_response(question, data)
-                
-                # Save context for next turn
                 session_manager.update_context(session_id, **tool_args)
-                return answer, session_id, [], courses
+                
+                final_answer_text = answer
+                session_manager.add_message(session_id, "assistant", final_answer_text)
+                return final_answer_text, session_id, [], courses
                 
             elif tool_name == "ask_for_branch":
                 options = await external_api_service.get_all_branches()
-                return "Bạn vui lòng chọn chi nhánh để mình tư vấn chính xác nhé:", session_id, options, []
+                final_answer_text = "Bạn vui lòng chọn chi nhánh để mình tư vấn chính xác nhé:"
+                session_manager.add_message(session_id, "assistant", final_answer_text)
+                return final_answer_text, session_id, options, []
                 
             elif tool_name == "ask_for_grade":
                 options = await external_api_service.get_all_grades()
-                return "Bạn đang quan tâm đến lớp mấy ạ?", session_id, options, []
+                final_answer_text = "Bạn đang quan tâm đến lớp mấy ạ?"
+                session_manager.add_message(session_id, "assistant", final_answer_text)
+                return final_answer_text, session_id, options, []
                 
             elif tool_name == "ask_for_subject":
                 options = await external_api_service.get_all_subjects()
-                return "Bạn muốn tìm lớp môn gì ạ?", session_id, options, []
+                final_answer_text = "Bạn muốn tìm lớp môn gì ạ?"
+                session_manager.add_message(session_id, "assistant", final_answer_text)
+                return final_answer_text, session_id, options, []
                 
             elif tool_name == "search_general_info":
-                # Execute tool
                 answer_text = search_general_info.invoke(tool_args)
-                return answer_text, session_id, [], []
+                final_answer_text = answer_text
+                session_manager.add_message(session_id, "assistant", final_answer_text)
+                return final_answer_text, session_id, [], []
 
-        # Case B: No Tool Call (Agent asks clarifying question or chitchats)
-        answer_text = response.content
-        return answer_text, session_id, [], []
+        # Case B: No Tool Call
+        final_answer_text = response.content
+        session_manager.add_message(session_id, "assistant", final_answer_text)
+        return final_answer_text, session_id, [], []
 
 chat_orchestrator = ChatOrchestrator()

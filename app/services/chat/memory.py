@@ -43,6 +43,18 @@ class SessionManager:
             }
         return {"branch": None, "grade": None, "subject": None, "pending_query": None}
     
+    def add_message(self, session_id: str, role: str, content: str):
+        if session_id in self._sessions:
+            history = self._sessions[session_id].get("history", [])
+            history.append({"role": role, "content": content})
+            # Keep only last 10 messages
+            self._sessions[session_id]["history"] = history[-10:]
+
+    def get_history(self, session_id: str) -> list:
+        if session_id in self._sessions:
+            return self._sessions[session_id].get("history", [])
+        return []
+
     def clear_context(self, session_id: str):
          if session_id in self._sessions:
             self._sessions[session_id]["branch"] = None
