@@ -1,5 +1,5 @@
 import logging
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.core.config import settings
 
@@ -15,7 +15,6 @@ class IntentClassifier:
            - Chi nhánh, địa chỉ cụ thể nào đó.
            - Khoá học có những gì.
            - Lịch nghỉ lễ, lịch học, ca học.
-           - Phòng học ở đâu.
            - Danh sách giáo viên.
            - Thông tin về học kì (semester).
            Ví dụ: "Lịch học toán lớp 10 thế nào?", "Chi nhánh có những thầy cô nào?", "Mai có được nghỉ không?".

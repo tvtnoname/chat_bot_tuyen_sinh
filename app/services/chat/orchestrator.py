@@ -6,7 +6,7 @@ from app.services.rag.engine import rag_service
 from app.services.external.school_api import external_api_service
 from app.services.chat.memory import session_manager
 from app.services.chat.intent import intent_classifier
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.core.config import settings
 
@@ -57,6 +57,7 @@ class ChatOrchestrator:
         Danh sách Môn hợp lệ: {valid_subjects}
         
         Nếu người dùng nhắc đến địa điểm hoặc địa chỉ (Hà Nội, Sài Gòn, Số 1 Đại Cồ Việt...), hãy map về Chi nhánh tương ứng.
+        Nếu tìm thấy con số đại diện cho khối lớp (ví dụ: 10, 11, 12), hãy trích xuất nó vào cột Grade. Ưu tiên cập nhật Grade mới nếu người dùng nhắc đến nó.
         Nếu không tìm thấy, trả về "None".
         
         Câu nói: "{text}"
@@ -67,6 +68,9 @@ class ChatOrchestrator:
         "Mình ở số 1 đại cồ việt muốn học toán" -> Số 1 Đại Cồ Việt|None|Toán
         "Các môn học" -> None|None|None
         "Lớp Toán 10" -> None|10|Toán
+        "Danh sách môn học lớp 9" -> None|9|None
+        "Còn lớp 12 thì sao" -> None|12|None
+        "học phí lớp 11" -> None|11|None
         """
         self.extraction_prompt = PromptTemplate.from_template(extraction_template)
 

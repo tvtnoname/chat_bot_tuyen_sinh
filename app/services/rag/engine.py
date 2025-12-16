@@ -4,7 +4,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains import RetrievalQA
+# from langchain.chains import RetrievalQA
 from app.core.config import settings
 
 class RAGService:
@@ -57,13 +57,14 @@ class RAGService:
             QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
 
             retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
-            self.qa_chain = RetrievalQA.from_chain_type(
-                llm=llm,
-                chain_type="stuff",
-                retriever=retriever,
-                return_source_documents=False,
-                chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
-            )
+            # self.qa_chain = RetrievalQA.from_chain_type(
+            #     llm=llm,
+            #     chain_type="stuff",
+            #     retriever=retriever,
+            #     return_source_documents=False,
+            #     chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
+            # )
+            self.qa_chain = None
             self.ready = True
             logging.info("Hệ thống RAG đã sẵn sàng hoạt động.")
         except Exception as e:
