@@ -159,6 +159,10 @@ class ExternalAPIService:
         for c in self.cached_data.get("classes", []):
             # Cần check null safety
             if c.get("branchId") == branch_id and c.get("gradeId") == grade_id:
+                # Filter by Status (RUNNING or PLANNED)
+                if c.get("status") not in ["RUNNING", "PLANNED"]:
+                    continue
+
                 # Filter by Subject if provided
                 if subject:
                     c_subject = (c.get("subject") or {}).get("name", "")
