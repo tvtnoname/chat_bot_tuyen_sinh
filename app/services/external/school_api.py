@@ -105,7 +105,7 @@ class ExternalAPIService:
         """Lấy dữ liệu đã lọc theo chi nhánh, khối và môn học (option)."""
         await self._ensure_data()
         if not self.cached_data:
-            return {"message": "Không thể kết nối đến hệ thống dữ liệu."}
+            return {"message": "Không thể kết nối đến hệ thống."}
 
         logging.info(f"Đang lọc dữ liệu cho Chi nhánh: {branch}, Khối: {grade}")
 
