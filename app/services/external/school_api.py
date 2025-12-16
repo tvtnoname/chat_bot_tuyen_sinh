@@ -93,9 +93,11 @@ class ExternalAPIService:
         subjects = set()
         # Collect subjects from classes
         for c in self.cached_data.get("classes", []):
-            subj_name = c.get("subject", {}).get("name")
-            if subj_name:
-                subjects.add(subj_name)
+            subj = c.get("subject")
+            if subj:
+                subj_name = subj.get("name")
+                if subj_name:
+                    subjects.add(subj_name)
         
         return list(subjects)
 
@@ -147,7 +149,7 @@ class ExternalAPIService:
             if c.get("branchId") == branch_id and c.get("gradeId") == grade_id:
                 # Filter by Subject if provided
                 if subject:
-                    c_subject = c.get("subject", {}).get("name", "")
+                    c_subject = (c.get("subject") or {}).get("name", "")
                     # Loose matching for subject
                     if subject.lower() not in c_subject.lower() and c_subject.lower() not in subject.lower():
                         continue
@@ -155,14 +157,14 @@ class ExternalAPIService:
                 # Format schedule info nicely
                 schedules = []
                 for s in c.get("classSchedules", []):
-                    slot = s.get("lessonSlot", {})
-                    room = s.get("room", {})
+                    slot = s.get("lessonSlot") or {}
+                    room = s.get("room") or {}
                     schedules.append(f"Thứ {s.get('dayOfWeek')} - {slot.get('name')} ({slot.get('startTime')}-{slot.get('endTime')}) tại {room.get('name')}")
 
                 class_info = {
                     "id": c["classId"],
                     "name": c["name"],
-                    "subject": c.get("subject", {}).get("name"),
+                    "subject": (c.get("subject") or {}).get("name"),
                     "fee": c["fee"],
                     "schedules": schedules,
                     "startDate": c["startDate"],
@@ -182,7 +184,7 @@ class ExternalAPIService:
                      "name": t.get("user", {}).get("fullName"),
                      "qualification": t.get("qualification"),
                      "experience": t.get("experienceYears"),
-                     "subjects": [ts.get("subject", {}).get("name") for ts in t.get("teacherSubjects", [])]
+                     "subjects": [(ts.get("subject") or {}).get("name") for ts in t.get("teacherSubjects", [])]
                  })
 
         # 5. Build Result
