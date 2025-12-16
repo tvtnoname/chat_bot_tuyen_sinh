@@ -49,6 +49,9 @@ class ChatOrchestrator:
         
         Nếu không có khóa học nào trong dữ liệu, "courses" là danh sách rỗng [].
         Chỉ trả về JSON.
+        """
+        self.data_response_prompt = PromptTemplate.from_template(data_response_template)
+
         # Prompt để trích xuất thông tin (Entity Extraction)
         extraction_template = """
         Trích xuất thông tin "Chi nhánh" (Branch), "Khối" (Grade) và "Môn học" (Subject) từ câu nói của người dùng.
