@@ -4,7 +4,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain.chains import RetrievalQA
+from langchain.chains import RetrievalQA
 from app.core.config import settings
 
 class RAGService:
@@ -40,11 +40,11 @@ class RAGService:
             llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
 
             # 6. Tạo chuỗi QA với Prompt tùy chỉnh
-            from langchain.prompts import PromptTemplate
+            from langchain_core.prompts import PromptTemplate
 
             template = """Bạn là trợ lý ảo AI thân thiện của Trung tâm Thăng Long.
             Đối tượng hỏi là học sinh (học viên).
-            Hãy xưng hô là 'Tôi' và gọi người dùng là 'Em'.
+            Hãy xưng hô là 'Tôi' và gọi người dùng là 'Bạn'.
             Nếu câu hỏi nằm ngoài tài liệu, hãy trả lời khéo léo và hướng dẫn các em liên hệ hotline.
 
             Sử dụng các thông tin sau đây để trả lời câu hỏi. Nếu không biết câu trả lời, hãy nói là bạn không biết, đừng cố bịa ra câu trả lời.
@@ -57,14 +57,13 @@ class RAGService:
             QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
 
             retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
-            # self.qa_chain = RetrievalQA.from_chain_type(
-            #     llm=llm,
-            #     chain_type="stuff",
-            #     retriever=retriever,
-            #     return_source_documents=False,
-            #     chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
-            # )
-            self.qa_chain = None
+            self.qa_chain = RetrievalQA.from_chain_type(
+                llm=llm,
+                chain_type="stuff",
+                retriever=retriever,
+                return_source_documents=False,
+                chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
+            )
             self.ready = True
             logging.info("Hệ thống RAG đã sẵn sàng hoạt động.")
         except Exception as e:
