@@ -49,8 +49,71 @@ class ChatOrchestrator:
         
         Nếu không có khóa học nào trong dữ liệu, "courses" là danh sách rỗng [].
         Chỉ trả về JSON.
+        # Prompt để trích xuất thông tin (Entity Extraction)
+        extraction_template = """
+        Trích xuất thông tin "Chi nhánh" (Branch), "Khối" (Grade) và "Môn học" (Subject) từ câu nói của người dùng.
+        Danh sách Chi nhánh hợp lệ: {valid_branches}
+        Danh sách Khối hợp lệ: {valid_grades}
+        Danh sách Môn hợp lệ: {valid_subjects}
+        
+        Nếu người dùng nhắc đến địa điểm hoặc địa chỉ (Hà Nội, Sài Gòn, Số 1 Đại Cồ Việt...), hãy map về Chi nhánh tương ứng.
+        Nếu tìm thấy con số đại diện cho khối lớp (ví dụ: 10, 11, 12), hãy trích xuất nó vào cột Grade. Ưu tiên cập nhật Grade mới nếu người dùng nhắc đến nó.
+        Nếu không tìm thấy, trả về "None".
+        
+        Câu nói: "{text}"
+        
+        Output format: Branch|Grade|Subject
+        Ví dụ: 
+        "Em học lớp 10 ở Hà Nội" -> Thăng Long Hà Nội|10|None
+        "Mình ở số 1 đại cồ việt muốn học toán" -> Số 1 Đại Cồ Việt|None|Toán
+        "Các môn học" -> None|None|None
+        "Lớp Toán 10" -> None|10|Toán
+        "Danh sách môn học lớp 9" -> None|9|None
+        "Còn lớp 12 thì sao" -> None|12|None
+        "học phí lớp 11" -> None|11|None
         """
-        self.data_response_prompt = PromptTemplate.from_template(data_response_template)
+        self.extraction_prompt = PromptTemplate.from_template(extraction_template)
+
+    async def _extract_entities(self, text: str) -> Tuple[str, str, str]:
+        """Trích xuất Branch, Grade và Subject từ text."""
+        try:
+            # Lấy danh sách hợp lệ từ API (cache)
+            valid_branches = await external_api_service.get_all_branches()
+            valid_grades = await external_api_service.get_all_grades()
+            valid_subjects = await external_api_service.get_all_subjects()
+            
+            # Default fallback nếu API chưa có dữ liệu
+            if not valid_branches:
+                valid_branches = ["[Đang cập nhật]"]
+            if not valid_grades:
+                valid_grades = ["10", "11", "12"]
+
+            chain = self.extraction_prompt | self.llm
+            result = await chain.ainvoke({
+                "valid_branches": str(valid_branches),
+                "valid_grades": str(valid_grades),
+                "valid_subjects": str(valid_subjects),
+                "text": text
+            })
+            
+            content = result.content.strip()
+            if "|" in content:
+                parts = content.split("|")
+                if len(parts) >= 3:
+                     branch = parts[0].strip() if parts[0].strip() != "None" else None
+                     grade = parts[1].strip() if parts[1].strip() != "None" else None
+                     subject = parts[2].strip() if parts[2].strip() != "None" else None
+                     return branch, grade, subject
+                elif len(parts) == 2:
+                     # Fallback for old prompt format just in case
+                     branch = parts[0].strip() if parts[0].strip() != "None" else None
+                     grade = parts[1].strip() if parts[1].strip() != "None" else None
+                     return branch, grade, None
+
+            return None, None, None
+        except Exception as e:
+            logging.error(f"Lỗi extract entities: {e}")
+            return None, None, None
 
     async def _generate_data_response(self, question: str, data: dict) -> Tuple[str, List[dict]]:
         """Sinh câu trả lời từ dữ liệu API dưới dạng text và courses list."""
@@ -79,6 +142,12 @@ class ChatOrchestrator:
         if not session_id:
             session_id = session_manager.create_session()
         
+        # 0. Pre-process: Extract entities to update state
+        # Điều này cực kỳ quan trọng để Agent "thấy" được lựa chọn của user (Branch/Grade)
+        extracted_branch, extracted_grade, extracted_subject = await self._extract_entities(question)
+        if extracted_branch or extracted_grade or extracted_subject:
+            session_manager.update_context(session_id, branch=extracted_branch, grade=extracted_grade, subject=extracted_subject)
+        
         # 1. Prepare Context & System Prompt
         # Fetch valid options to inject into System Prompt
         valid_branches = await external_api_service.get_all_branches()
@@ -99,7 +168,7 @@ CÁC CÔNG CỤ (TOOLS):
    - KHÔNG được hỏi bằng lời. BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
    
 4. `ask_for_subject()`: Gọi công cụ này nếu thiếu thông tin Môn học (Subject), hoặc người dùng muốn xem danh sách môn.
-   - Tùy chọn, không bắt buộc nếu người dùng muốn xem tất cả môn.
+   - NÊN gọi nếu chưa biết môn, để kết quả tra cứu chính xác hơn.
    
 5. `search_general_info(query)`: Dùng cho câu hỏi chung, quy định, địa chỉ chung chung, hoặc chào hỏi.
 
@@ -108,6 +177,7 @@ QUY TRÌNH:
 - Nếu người dùng hỏi lớp học:
   - Kiểm tra `branch`? Chưa có -> Gọi `ask_for_branch()`.
   - Kiểm tra `grade`? Chưa có -> Gọi `ask_for_grade()`.
+  - Kiểm tra `subject`? Chưa có -> NÊN Gọi `ask_for_subject()`.
   - Nếu đủ -> Gọi `search_classes`.
 - Luôn ưu tiên thông tin mới nhất trong câu hỏi.
 
