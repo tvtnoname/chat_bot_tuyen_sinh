@@ -10,6 +10,18 @@ class ExternalAPIService:
     def __init__(self):
         self.api_url = settings.SCHOOL_API_URL
         self.cached_data = None
+    
+    def _format_day(self, day_code: Any) -> str:
+        try:
+            val = int(day_code)
+            # Rule: dayOfWeek = 1 -> Thứ 2, 2 -> Thứ 3... (val + 1)
+            display_val = val + 1
+            if display_val == 8:
+                return "Chủ Nhật"
+            return f"Thứ {display_val}"
+        except (ValueError, TypeError):
+            # Fallback for non-integer codes
+            return f"Thứ {day_code}"
 
     def _sync_fetch(self):
         try:
@@ -159,7 +171,7 @@ class ExternalAPIService:
                 for s in c.get("classSchedules", []):
                     slot = s.get("lessonSlot") or {}
                     room = s.get("room") or {}
-                    schedules.append(f"Thứ {s.get('dayOfWeek')} - {slot.get('name')} ({slot.get('startTime')}-{slot.get('endTime')}) tại {room.get('name')}")
+                    schedules.append(f"{self._format_day(s.get('dayOfWeek'))} - {slot.get('name')} ({slot.get('startTime')}-{slot.get('endTime')}) tại {room.get('name')}")
 
                 class_info = {
                     "id": c["classId"],
