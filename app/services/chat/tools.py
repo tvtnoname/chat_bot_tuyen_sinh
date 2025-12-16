@@ -22,6 +22,33 @@ async def search_classes(branch: str, grade: str, subject: Optional[str] = None)
     return data
 
 @tool
+def ask_for_branch() -> str:
+    """
+    Sử dụng công cụ này khi bạn cần người dùng chọn Chi nhánh (Branch/Location).
+    Hệ thống sẽ hiển thị danh sách các chi nhánh để người dùng chọn.
+    Không cần tham số.
+    """
+    return "DISPLAY_BRANCH_OPTIONS"
+
+@tool
+def ask_for_grade() -> str:
+    """
+    Sử dụng công cụ này khi bạn cần người dùng chọn Khối lớp (Grade).
+    Hệ thống sẽ hiển thị danh sách khối lớp.
+    Không cần tham số.
+    """
+    return "DISPLAY_GRADE_OPTIONS"
+
+@tool
+def ask_for_subject() -> str:
+    """
+    Sử dụng công cụ này khi bạn cần người dùng chọn Môn học (Subject).
+    Hệ thống sẽ hiển thị danh sách môn học.
+    Không cần tham số.
+    """
+    return "DISPLAY_SUBJECT_OPTIONS"
+
+@tool
 def search_general_info(query: str) -> str:
     """
     Tra cứu thông tin chung về trung tâm, quy định, chính sách, hoặc chào hỏi xã giao.

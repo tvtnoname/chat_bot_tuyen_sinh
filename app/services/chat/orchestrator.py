@@ -7,7 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import settings
 from app.services.chat.memory import session_manager
-from app.services.chat.tools import search_classes, search_general_info
+from app.services.chat.tools import search_classes, search_general_info, ask_for_branch, ask_for_grade, ask_for_subject
 from app.services.external.school_api import external_api_service
 
 class ChatOrchestrator:
@@ -15,7 +15,7 @@ class ChatOrchestrator:
         self.llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
         
         # Bind tools to LLM
-        self.tools = [search_classes, search_general_info]
+        self.tools = [search_classes, search_general_info, ask_for_branch, ask_for_grade, ask_for_subject]
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
         # Prompt format response (keep existing logic for consistent UI)
@@ -89,41 +89,45 @@ Nhiệm vụ: Tư vấn khóa học, học phí và giải đáp thắc mắc.
 
 CÁC CÔNG CỤ (TOOLS):
 1. `search_classes(branch, grade, subject)`: Dùng tìm kiếm lớp học.
+   - ƯU TIÊN HÀNG ĐẦU.
    - BẮT BUỘC phải có `branch` (Chi nhánh) và `grade` (Khối lớp) trước khi gọi.
-   - Nếu thiếu, HÃY HỎI người dùng. Đừng tự bịa.
-   - Branch hợp lệ: {valid_branches}
-   - Grade hợp lệ: {valid_grades}
    
-2. `search_general_info(query)`: Dùng cho câu hỏi chung, quy định, địa chỉ chung chung, hoặc chào hỏi.
+2. `ask_for_branch()`: Gọi công cụ này nếu thiếu thông tin Chi nhánh (Branch).
+   - KHÔNG được hỏi bằng lời. BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
+   
+3. `ask_for_grade()`: Gọi công cụ này nếu thiếu thông tin Khối lớp (Grade).
+   - KHÔNG được hỏi bằng lời. BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
+   
+4. `ask_for_subject()`: Gọi công cụ này nếu thiếu thông tin Môn học (Subject), hoặc người dùng muốn xem danh sách môn.
+   - Tùy chọn, không bắt buộc nếu người dùng muốn xem tất cả môn.
+   
+5. `search_general_info(query)`: Dùng cho câu hỏi chung, quy định, địa chỉ chung chung, hoặc chào hỏi.
 
 QUY TRÌNH:
 - Nếu người dùng chào hỏi -> Gọi `search_general_info` hoặc tự trả lời.
-- Nếu người dùng hỏi lớp học -> Kiểm tra đã có Branch/Grade chưa?
-  - Nếu chưa -> Hỏi người dùng (Trả về text).
+- Nếu người dùng hỏi lớp học:
+  - Kiểm tra `branch`? Chưa có -> Gọi `ask_for_branch()`.
+  - Kiểm tra `grade`? Chưa có -> Gọi `ask_for_grade()`.
   - Nếu đủ -> Gọi `search_classes`.
 - Luôn ưu tiên thông tin mới nhất trong câu hỏi.
 
 Lịch sử chat:
-(Hệ thống tự quản lý memory, nhưng bạn hãy chú ý context thay đổi)
+(Hệ thống tự quản lý memory)
 """
-        # Get history from session (Simple list of messages)
-        # TODO: Implement persistent message history in SessionManager for robust chat.
-        # For now, we rely on the LLM processing the curent query with the system prompt context. 
-        # Ideally we pass previous messages too.
-        
         messages = [SystemMessage(content=system_prompt)]
+        context = session_manager.get_context(session_id)
         
         # Add simple history if available (optional enhancement)
-        context = session_manager.get_context(session_id)
-        # Restore basic context if needed, but let's try pure Agent approach first.
-        
+        # Inject current known slots to help Agent decide
+        current_slots_info = f"Current Knowledge: Branch={context.get('branch')}, Grade={context.get('grade')}, Subject={context.get('subject')}"
+        messages.append(SystemMessage(content=current_slots_info))
+
         messages.append(HumanMessage(content=question))
 
         # 2. Invoke LLM with Tools
         response = await self.llm_with_tools.ainvoke(messages)
 
         # 3. Handle Response
-        # Case A: Tool Call
         if response.tool_calls:
             tool_call = response.tool_calls[0] # Handle first tool call
             tool_name = tool_call["name"]
@@ -137,9 +141,21 @@ Lịch sử chat:
                 # Format response for App
                 answer, courses = await self._generate_data_response(question, data)
                 
-                # Save context for next turn (Explicitly save successful params)
+                # Save context for next turn
                 session_manager.update_context(session_id, **tool_args)
                 return answer, session_id, [], courses
+                
+            elif tool_name == "ask_for_branch":
+                options = await external_api_service.get_all_branches()
+                return "Bạn vui lòng chọn chi nhánh để mình tư vấn chính xác nhé:", session_id, options, []
+                
+            elif tool_name == "ask_for_grade":
+                options = await external_api_service.get_all_grades()
+                return "Bạn đang quan tâm đến lớp mấy ạ?", session_id, options, []
+                
+            elif tool_name == "ask_for_subject":
+                options = await external_api_service.get_all_subjects()
+                return "Bạn muốn tìm lớp môn gì ạ?", session_id, options, []
                 
             elif tool_name == "search_general_info":
                 # Execute tool
