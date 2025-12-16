@@ -159,7 +159,8 @@ Nhiệm vụ: Tư vấn khóa học, học phí và giải đáp thắc mắc.
 
 CÁC CÔNG CỤ (TOOLS):
 1. `search_classes(branch, grade, subject)`: Dùng tìm kiếm lớp học.
-   - BẮT BUỘC phải có `branch` (Chi nhánh) và `grade` (Khối lớp) trước khi gọi.
+   - BẮT BUỘC phải có `branch` (Chi nhánh).
+   - `grade` (Khối lớp) là BẮT BUỘC để có kết quả chính xác nhất. HÃY HỎI nếu thiếu.
    
 2. `ask_for_branch()`: Gọi công cụ này nếu thiếu thông tin Chi nhánh (Branch).
    - BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
@@ -167,7 +168,7 @@ CÁC CÔNG CỤ (TOOLS):
    
 3. `ask_for_grade()`: Gọi công cụ này nếu thiếu thông tin Khối lớp (Grade).
    - BẮT BUỘC gọi tool này để hiển thị danh sách chọn.
-   - KHÔNG ĐƯỢC hỏi bằng lời. HÃY GỌI TOOL.
+   - KHÔNG ĐƯỢC hỏi bằng lời (text) dạng "Bạn học khối mấy?". HÃY GỌI TOOL.
    
 4. `ask_for_subject()`: Gọi công cụ này nếu thiếu dữ liệu Môn học, hoặc người dùng muốn xem danh sách môn.
    - NÊN gọi nếu chưa biết môn.
@@ -177,7 +178,7 @@ CÁC CÔNG CỤ (TOOLS):
 QUY TẮC QUAN TRỌNG:
 - NẾU THIẾU THÔNG TIN (Branch/Grade): ĐỪNG giải thích hay xin lỗi. GỌI TOOL NGAY LẬP TỨC.
 - Ưu tiên gọi Tool hơn là trả lời Text.
-- Nếu người dùng nói câu khẳng định ngắn ("ok", "hiển thị đi", "cho tôi xem"), HÃY DỰA VÀO LỊCH SỬ CHAT để hiểu họ muốn gì (thường là đồng ý cho bạn gọi tool hoặc hiển thị danh sách).
+- Tuyệt đối không yêu cầu người dùng "nhập" hoặc "cho biết". Hãy dùng từ "chọn".
 
 Lịch sử chat:
 """
@@ -231,7 +232,7 @@ Lịch sử chat:
                 
             elif tool_name == "ask_for_grade":
                 options = await external_api_service.get_all_grades()
-                final_answer_text = "Bạn đang quan tâm đến lớp mấy ạ?"
+                final_answer_text = "Bạn vui lòng chọn khối lớp:"
                 session_manager.add_message(session_id, "assistant", final_answer_text)
                 return final_answer_text, session_id, options, []
                 
@@ -256,13 +257,13 @@ Lịch sử chat:
         lower_answer = final_answer_text.lower()
         
         # Check Grade keywords
-        if any(kw in lower_answer for kw in ["lớp mấy", "khối mấy", "khối nào", "lớp nào"]):
+        if any(kw in lower_answer for kw in ["lớp mấy", "khối mấy", "khối nào", "lớp nào", "khối lớp", "chọn khối", "nhập khối"]):
             logging.info("Guardrail: Detected text asking for Grade. Attaching options.")
             options = await external_api_service.get_all_grades()
             return final_answer_text, session_id, options, []
             
         # Check Branch keywords
-        if any(kw in lower_answer for kw in ["chi nhánh", "cơ sở", "địa chỉ", "ở đâu", "địa điểm"]):
+        if any(kw in lower_answer for kw in ["chi nhánh", "cơ sở", "địa chỉ", "ở đâu", "địa điểm", "chọn chi nhánh", "nhập chi nhánh"]):
              logging.info("Guardrail: Detected text asking for Branch. Attaching options.")
              options = await external_api_service.get_all_branches()
              return final_answer_text, session_id, options, []
