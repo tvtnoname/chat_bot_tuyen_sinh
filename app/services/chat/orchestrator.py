@@ -250,6 +250,29 @@ Lịch sử chat:
         # Case B: No Tool Call
         final_answer_text = response.content
         session_manager.add_message(session_id, "assistant", final_answer_text)
+        
+        # HEURISTIC GUARDRAILS (Phòng hờ Agent quên gọi tool)
+        # Nếu câu trả lời chứa từ khóa hỏi thông tin, tự động đính kèm options tương ứng.
+        lower_answer = final_answer_text.lower()
+        
+        # Check Grade keywords
+        if any(kw in lower_answer for kw in ["lớp mấy", "khối mấy", "khối nào", "lớp nào"]):
+            logging.info("Guardrail: Detected text asking for Grade. Attaching options.")
+            options = await external_api_service.get_all_grades()
+            return final_answer_text, session_id, options, []
+            
+        # Check Branch keywords
+        if any(kw in lower_answer for kw in ["chi nhánh", "cơ sở", "địa chỉ", "ở đâu", "địa điểm"]):
+             logging.info("Guardrail: Detected text asking for Branch. Attaching options.")
+             options = await external_api_service.get_all_branches()
+             return final_answer_text, session_id, options, []
+
+        # Check Subject keywords
+        if any(kw in lower_answer for kw in ["môn gì", "môn nào", "môn học"]):
+             logging.info("Guardrail: Detected text asking for Subject. Attaching options.")
+             options = await external_api_service.get_all_subjects()
+             return final_answer_text, session_id, options, []
+
         return final_answer_text, session_id, [], []
 
 chat_orchestrator = ChatOrchestrator()
