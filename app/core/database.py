@@ -6,8 +6,18 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@localhost:5432/chatbot_db")
 
 # Hack: SQLAlchemy async engine cần schema là postgresql+asyncpg
-if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+# Và Supabase cần ssl=require
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+    
+    # Nếu không phải localhost (tức là cloud DB), thêm user pass ssl nếu chưa có
+    if "localhost" not in DATABASE_URL and "ssl=" not in DATABASE_URL:
+        # Nếu đã có query param rồi (?) thì thêm &ssl=require, chưa có thì ?ssl=require
+        if "?" in DATABASE_URL:
+            DATABASE_URL += "&ssl=require"
+        else:
+            DATABASE_URL += "?ssl=require"
 
 # Khởi tạo Async Engine
 engine = create_async_engine(DATABASE_URL, echo=True)
