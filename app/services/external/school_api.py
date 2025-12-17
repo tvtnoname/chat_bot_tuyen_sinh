@@ -5,6 +5,7 @@ import asyncio
 from typing import Dict, List, Optional, Any
 
 from app.core.config import settings
+from app.services.cache import cache_result
 
 class ExternalAPIService:
     def __init__(self):
@@ -79,6 +80,7 @@ class ExternalAPIService:
                 return True
         return False
 
+    @cache_result(ttl=3600)
     async def get_all_branches(self) -> List[str]:
         """Lấy danh sách tên tất cả chi nhánh."""
         await self._ensure_data()
@@ -87,6 +89,7 @@ class ExternalAPIService:
         # Return addresses as requested by user
         return [b["address"] for b in self.cached_data["branches"]]
 
+    @cache_result(ttl=3600)
     async def get_all_grades(self) -> List[str]:
         """Lấy danh sách mã khối."""
         await self._ensure_data()
@@ -96,6 +99,7 @@ class ExternalAPIService:
         # API trả "10", "11", "12" là OK.
         return [str(g["code"]) for g in self.cached_data["grades"]]
 
+    @cache_result(ttl=3600)
     async def get_all_subjects(self) -> List[str]:
         """Lấy danh sách các môn học có trong hệ thống."""
         await self._ensure_data()

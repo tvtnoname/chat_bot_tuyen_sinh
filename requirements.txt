@@ -12,3 +12,7 @@ httpx
 rank_bm25
 flashrank
 
+sqlalchemy
+asyncpg
+greenlet
+redis

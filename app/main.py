@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.chat import router as chat_router
+from app.api.v1.history import router as history_router
 from app.services.rag.engine import rag_service
 import logging
 
@@ -20,10 +21,18 @@ app.add_middleware(
 
 # Đăng ký router
 app.include_router(chat_router, prefix="/api/v1")
+app.include_router(history_router, prefix="/api/v1")
+
+from app.core.database import init_db
+# Import models to register tables
+# Import models to register tables
+from app.models import chat as chat_models
 
 @app.on_event("startup")
 async def startup_event():
     """Khởi tạo dịch vụ khi ứng dụng bắt đầu."""
+    logging.info("Khởi tạo Database...")
+    await init_db()
     await rag_service.initialize()
 
 @app.get("/")

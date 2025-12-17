@@ -1,15 +1,31 @@
-FROM python:3.9
+# Sử dụng Python 3.10
+FROM python:3.10
 
-# Create user with ID 1000 for Hugging Face Spaces
+# Thiết lập thư mục làm việc
+WORKDIR /code
+
+# Copy file requirements trước để tận dụng cache layer của Docker
+COPY ./requirements.txt /code/requirements.txt
+
+# Cài đặt thư viện
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+# Copy toàn bộ mã nguồn vào
+COPY ./app /code/app
+COPY ./data /code/data
+
+# Thiết lập biến môi trường mặc định (có thể bị override bởi HF Secrets)
+# ENV MODEL_NAME="gemini-2.0-flash" 
+# ENV DATABASE_URL="..."
+
+# Tạo user non-root (bắt buộc trên một số platform)
 RUN useradd -m -u 1000 user
 USER user
-ENV PATH="/home/user/.local/bin:$PATH"
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
 
-WORKDIR /app
+# Expose port 7860 (Hugging Face Spaces mặc định dùng port này)
+EXPOSE 7860
 
-COPY --chown=user ./requirements.txt requirements.txt
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
-
-COPY --chown=user . .
-
+# Lệnh chạy server
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]

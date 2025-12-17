@@ -3,6 +3,7 @@ from pydantic import BaseModel
 class ChatInput(BaseModel):
     question: str
     session_id: str = None
+    user_id: str = None
 
 from typing import List, Optional
 
