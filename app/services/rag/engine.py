@@ -4,7 +4,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains import RetrievalQA
+from langchain_classic.chains import RetrievalQA
 from app.core.config import settings
 
 class RAGService:
@@ -39,7 +39,16 @@ class RAGService:
             # 5. Khởi tạo LLM
             llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
 
-            # 6. Tạo chuỗi QA với Prompt tùy chỉnh
+            # 6. Tạo Hybrid Retriever (New Phase 2)
+            from app.services.rag.retrievers import HybridRetriever
+            logging.info("Đang khởi tạo Hybrid Retriever (BM25 + Vector + Rerank)...")
+            retriever = HybridRetriever.from_documents(
+                documents=chunks, 
+                vector_store=self.vector_store, 
+                k=5 # Lấy 5 candidate mỗi bên -> Rerank lấy top 3
+            )
+
+            # 7. Tạo chuỗi QA với Prompt tùy chỉnh
             from langchain_core.prompts import PromptTemplate
 
             template = """Bạn là trợ lý ảo AI thân thiện của Trung tâm Thăng Long.
@@ -56,7 +65,6 @@ class RAGService:
             
             QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
 
-            retriever = self.vector_store.as_retriever(search_kwargs={"k": 3})
             self.qa_chain = RetrievalQA.from_chain_type(
                 llm=llm,
                 chain_type="stuff",
@@ -65,7 +73,7 @@ class RAGService:
                 chain_type_kwargs={"prompt": QA_CHAIN_PROMPT}
             )
             self.ready = True
-            logging.info("Hệ thống RAG đã sẵn sàng hoạt động.")
+            logging.info("Hệ thống RAG đã sẵn sàng hoạt động (Advanced Hybrid Mode).")
         except Exception as e:
             logging.error(f"Lỗi khởi động RAG: {e}")
             self.ready = False

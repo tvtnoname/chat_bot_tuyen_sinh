@@ -267,3 +267,6 @@ A: Em có thể dùng chức năng "Phản hồi" trên App, hoặc gọi hotlin
 
 Q: Danh sách các lớp học đang mở?
 A: Bạn hãy qua phần trang chủ, chọn "Cửa hàng khoá học" để xem danh sách các khoá học đang mở.
+
+---
+---
