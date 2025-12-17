@@ -19,4 +19,4 @@ class Settings:
 settings = Settings()
 
 if not settings.GOOGLE_API_KEY:
-    logging.warning("Thiếu GOOGLE_API_KEY. Chức năng chat sẽ không hoạt động.")
+    logging.warning("Thiếu GOOGLE_API_KEY")
