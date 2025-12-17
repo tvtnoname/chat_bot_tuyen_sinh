@@ -9,4 +9,6 @@ langchain-huggingface
 python-multipart
 python-dotenv
 httpx
+rank_bm25
+flashrank
 
