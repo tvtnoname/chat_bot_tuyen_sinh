@@ -16,3 +16,4 @@ sqlalchemy
 asyncpg
 greenlet
 redis
+psycopg2-binary

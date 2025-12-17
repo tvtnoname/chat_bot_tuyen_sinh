@@ -5,6 +5,10 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 # Lấy URL từ biến môi trường, fallback nếu không có
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@localhost:5432/chatbot_db")
 
+# Hack: SQLAlchemy async engine cần schema là postgresql+asyncpg
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 # Khởi tạo Async Engine
 engine = create_async_engine(DATABASE_URL, echo=True)
 
