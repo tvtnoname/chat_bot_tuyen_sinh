@@ -1,4 +1,4 @@
-import os
+# Quản lý Cache (Redis)
 import json
 import logging
 import inspect
@@ -16,10 +16,10 @@ class RedisCache:
         try:
             if REDIS_URL:
                 self.client = redis.from_url(REDIS_URL, decode_responses=True)
-                logging.info(f"Connected to Redis via REDIS_URL")
+                logging.info(f"Đã kết nối Redis qua REDIS_URL")
             else:
                 self.client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, db=0, decode_responses=True)
-                logging.info(f"Connected to Redis at {REDIS_HOST}:{REDIS_PORT}")
+                logging.info(f"Đã kết nối Redis tại {REDIS_HOST}:{REDIS_PORT}")
             
             self.client.ping()
             self.enabled = True
@@ -27,7 +27,7 @@ class RedisCache:
             logging.error(f"Failed to connect to Redis: {e}")
             self.enabled = False
         except Exception as e:
-            logging.error(f"Failed to connect to Redis: {e}")
+            logging.error(f"Lỗi kết nối Redis: {e}")
             self.enabled = False
 
     def get(self, key: str):
@@ -50,19 +50,19 @@ class RedisCache:
 redis_cache = RedisCache()
 
 def cache_result(ttl: int = 3600):
-    """Decorator để cache kết quả của hàm (ưu tiên hàm async)."""
+    """Decorator để lưu cache kết quả trả về của hàm (Hỗ trợ Async)."""
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # Tạo unique key dựa trên tên hàm và tham số
+            # Tạo key định danh duy nhất dựa trên module, tên hàm và tham số đầu vào
             try:
-                # Lấy tên args
+                # Lấy tên tham số
                 arg_names = inspect.signature(func).parameters.keys()
-                # Map args vào tên
+                # Ánh xạ giá trị vào tên tham số
                 args_dict = dict(zip(arg_names, args))
                 args_dict.update(kwargs)
                 
-                # Bỏ 'self' ra khỏi key nếu là method
+                # Loại bỏ 'self' nếu là method của class
                 if 'self' in args_dict:
                     del args_dict['self']
                 
@@ -71,19 +71,19 @@ def cache_result(ttl: int = 3600):
             except Exception:
                 key = f"{func.__module__}:{func.__name__}:{str(args)}:{str(kwargs)}"
 
-            # 1. Check Cache
+            # 1. Kiểm tra Cache
             cached_val = redis_cache.get(key)
             if cached_val is not None:
-                logging.info(f"[CACHE HIT] {func.__name__}")
+                logging.info(f"[CACHE HIT] {func.__name__} (Lấy từ Redis)")
                 return cached_val
 
-            # 2. Exec Function
+            # 2. Thực thi hàm gốc
             result = await func(*args, **kwargs)
 
-            # 3. Save Cache
+            # 3. Lưu kết quả vào Cache
             if result:
                 redis_cache.set(key, result, ttl)
-                logging.info(f"[CACHE MISS] {func.__name__} -> Saved to redis")
+                logging.info(f"[CACHE MISS] {func.__name__} -> Đã lưu cache mới")
             
             return result
         return wrapper

@@ -5,7 +5,7 @@ from app.api.v1.history import router as history_router
 from app.services.rag.engine import rag_service
 import logging
 
-# Cấu hình logging
+# Cấu hình logging hệ thống
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = FastAPI(title="Dịch vụ AI Chatbot (RAG)", version="1.0.0")
@@ -24,8 +24,7 @@ app.include_router(chat_router, prefix="/api/v1")
 app.include_router(history_router, prefix="/api/v1")
 
 from app.core.database import init_db
-# Import models to register tables
-# Import models to register tables
+# Import models để đăng ký bảng
 from app.models import chat as chat_models
 
 @app.on_event("startup")

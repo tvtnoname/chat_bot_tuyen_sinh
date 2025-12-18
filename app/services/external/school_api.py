@@ -15,13 +15,13 @@ class ExternalAPIService:
     def _format_day(self, day_code: Any) -> str:
         try:
             val = int(day_code)
-            # Rule: dayOfWeek = 1 -> Thứ 2, 2 -> Thứ 3... (val + 1)
+            # Quy tắc: dayOfWeek = 1 -> Thứ 2, 2 -> Thứ 3... (val + 1)
             display_val = val + 1
             if display_val == 8:
                 return "Chủ Nhật"
             return f"Thứ {display_val}"
         except (ValueError, TypeError):
-            # Fallback for non-integer codes
+            # Fallback cho các mã không phải số nguyên
             return f"Thứ {day_code}"
 
     def _sync_fetch(self):
@@ -38,7 +38,7 @@ class ExternalAPIService:
 
         try:
             logging.info(f"Đang lấy dữ liệu từ {self.api_url}...")
-            # Run blocking call in a separate thread
+            # Chạy blocking call trong luồng riêng biệt
             self.cached_data = await asyncio.to_thread(self._sync_fetch)
             logging.info("Lấy dữ liệu thành công.")
             return self.cached_data
@@ -58,7 +58,7 @@ class ExternalAPIService:
         
         b_name_lower = branch_name.lower()
         for b in self.cached_data["branches"]:
-            # Check name or address
+            # Kiểm tra theo tên hoặc địa chỉ
             if (b_name_lower in b["name"].lower()) or \
                (b["name"].lower() in b_name_lower) or \
                (b_name_lower in b["address"].lower()) or \
@@ -73,7 +73,7 @@ class ExternalAPIService:
             return False
 
         # grade_name có thể là "10", "Lớp 10"...
-        # API grades: "code": 10, "name": "Lớp 10"
+        # Cấu trúc API grades: "code": 10, "name": "Lớp 10"
         for g in self.cached_data["grades"]:
             val_code = str(g["code"])
             if val_code in grade_name or grade_name in val_code or grade_name in g["name"]:
@@ -86,7 +86,7 @@ class ExternalAPIService:
         await self._ensure_data()
         if not self.cached_data or "branches" not in self.cached_data:
             return []
-        # Return addresses as requested by user
+        # Trả về địa chỉ theo yêu cầu người dùng
         return [b["address"] for b in self.cached_data["branches"]]
 
     @cache_result(ttl=3600)
@@ -95,8 +95,8 @@ class ExternalAPIService:
         await self._ensure_data()
         if not self.cached_data or "grades" not in self.cached_data:
             return []
-        # Trả về cả tên và code để prompt hiểu? Hoặc code. 
-        # API trả "10", "11", "12" là OK.
+        # Trả về mã code để prompt dễ hiểu
+        # API trả về "10", "11", "12" là hợp lệ.
         return [str(g["code"]) for g in self.cached_data["grades"]]
 
     @cache_result(ttl=3600)
@@ -107,7 +107,7 @@ class ExternalAPIService:
             return []
         
         subjects = set()
-        # Collect subjects from classes
+        # Thu thập danh sách môn học từ các lớp học
         for c in self.cached_data.get("classes", []):
             subj = c.get("subject")
             if subj:
@@ -125,23 +125,23 @@ class ExternalAPIService:
 
         logging.info(f"Đang lọc dữ liệu cho Chi nhánh: {branch}, Khối: {grade}")
 
-        # 1. Resolve Branch ID
+        # 1. Xác định ID Chi nhánh (Resolve Branch ID)
         branch_id = None
         branch_info = None
         for b in self.cached_data.get("branches", []):
-            # Check name or address
+            # Kiểm tra theo tên hoặc địa chỉ
             if (branch.lower() in b["name"].lower()) or \
                (b["name"].lower() in branch.lower()) or \
                (branch.lower() in b["address"].lower()) or \
                (b["address"].lower() in branch.lower()):
                 branch_id = b["branchId"]
                 
-                # Update branch info name if user used address, 
-                # but we still want to keep the canonical name in context if needed.
+                # Cập nhật tên chi nhánh nếu người dùng sử dụng địa chỉ,
+                # nhưng vẫn giữ tên chính thức trong context nếu cần.
                 branch_info = b
                 break
         
-        # 2. Resolve Grade ID
+        # 2. Xác định ID Khối lớp (Resolve Grade ID)
         grade_id = None
         grade_info = None
         for g in self.cached_data.get("grades", []):
@@ -156,25 +156,25 @@ class ExternalAPIService:
         if grade_id is None:
             return {"message": f"Không tìm thấy khối nào khớp với '{grade}'."}
 
-        # 3. Filter Classes
+        # 3. Lọc danh sách lớp học (Filter Classes)
         filtered_classes = []
         relevant_class_ids = set()
         
         for c in self.cached_data.get("classes", []):
-            # Cần check null safety
+            # Kiểm tra an toàn null (Null Safety)
             if c.get("branchId") == branch_id and c.get("gradeId") == grade_id:
-                # Filter by Status (RUNNING or PLANNED)
+                # Lọc theo Trạng thái (RUNNING hoặc PLANNED)
                 if c.get("status") not in ["RUNNING", "PLANNED"]:
                     continue
 
-                # Filter by Subject if provided
+                # Lọc theo môn học nếu có
                 if subject:
                     c_subject = (c.get("subject") or {}).get("name", "")
-                    # Loose matching for subject
+                    # So khớp tương đối cho tên môn học
                     if subject.lower() not in c_subject.lower() and c_subject.lower() not in subject.lower():
                         continue
 
-                # Format schedule info nicely
+                # Định dạng thông tin lịch học
                 schedules = []
                 for s in c.get("classSchedules", []):
                     slot = s.get("lessonSlot") or {}
@@ -194,7 +194,7 @@ class ExternalAPIService:
                 filtered_classes.append(class_info)
                 relevant_class_ids.add(c["classId"])
 
-        # 4. Find Teachers for these classes
+        # 4. Tìm giáo viên cho các lớp này
         relevant_teachers = []
         for t in self.cached_data.get("teachers", []):
             teach_assignments = t.get("teachingAssignments", [])
@@ -207,7 +207,7 @@ class ExternalAPIService:
                      "subjects": [(ts.get("subject") or {}).get("name") for ts in t.get("teacherSubjects", [])]
                  })
 
-        # 5. Build Result
+        # 5. Xây dựng kết quả trả về
         result = {
             "query_context": {
                 "branch": branch_info["name"],

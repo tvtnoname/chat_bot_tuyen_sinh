@@ -22,20 +22,20 @@ class HybridRetriever(BaseRetriever):
 
     @classmethod
     def from_documents(cls, documents: List[Document], vector_store: VectorStore, k: int = 4):
-        # 1. Init BM25
+        # 1. Khởi tạo BM25 (Tìm kiếm theo từ khóa)
         bm25_retriever = BM25Retriever.from_documents(documents)
         bm25_retriever.k = k
 
-        # 2. Init Vector Retriever
+        # 2. Khởi tạo Vector Retriever (Tìm kiếm ngữ nghĩa)
         vector_retriever = vector_store.as_retriever(search_kwargs={"k": k})
 
-        # 3. Init Ensemble (Weight 0.5 - 0.5)
+        # 3. Khởi tạo Ensemble (Trọng số 0.5 - 0.5)
         ensemble_retriever = EnsembleRetriever(
             retrievers=[bm25_retriever, vector_retriever],
             weights=[0.5, 0.5]
         )
 
-        # 4. Init Reranker (Lightweight model)
+        # 4. Khởi tạo Reranker (Sử dụng mô hình cross-encoder nhẹ)
         reranker = Ranker(model_name="ms-marco-MiniLM-L-12-v2", cache_dir="./.cache/flashrank")
 
         return cls(
@@ -46,13 +46,13 @@ class HybridRetriever(BaseRetriever):
         )
 
     def _get_relevant_documents(self, query: str, *, run_manager: CallbackManagerForRetrieverRun) -> List[Document]:
-        # Step 1: Hybrid Search (BM25 + Vector) -> Get ~ 2*k candidates
+        # Bước 1: Tìm kiếm lai (BM25 + Vector) -> Lấy khoảng 2*k ứng viên
         initial_docs = self.ensemble_retriever.invoke(query)
         
         if not initial_docs:
             return []
 
-        # Step 2: Rerank using Cross-Encoder
+        # Bước 2: Sắp xếp lại (Rerank) sử dụng Cross-Encoder
         passages = [
             {"id": str(i), "text": doc.page_content, "meta": doc.metadata} 
             for i, doc in enumerate(initial_docs)
@@ -61,12 +61,12 @@ class HybridRetriever(BaseRetriever):
         rerank_request = RerankRequest(query=query, passages=passages)
         results = self.reranker.rerank(rerank_request)
 
-        # Step 3: Format output
-        # Sort by score and return top k (default 3 or 4)
-        # Assuming we want top 3 final docs
+        # Bước 3: Định dạng kết quả đầu ra
+        # Sắp xếp theo điểm số và lấy top k (mặc định 3 hoặc 4)
+        # Giả định lấy top 3 tài liệu tốt nhất
         final_docs = []
         for res in results[:3]:
-            # Reconstruct Document object
+            # Tái tạo đối tượng Document
             original_doc = initial_docs[int(res["id"])]
             final_docs.append(Document(
                 page_content=res["text"],

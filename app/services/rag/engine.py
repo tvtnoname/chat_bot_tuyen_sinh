@@ -18,11 +18,11 @@ class RAGService:
         try:
             logging.info("Đang khởi tạo hệ thống RAG...")
             
-            # 1. Tải Dữ liệu
+            # 1. Tải Dữ liệu từ Knowledge Base
             loader = TextLoader(settings.KNOWLEDGE_BASE_PATH, encoding="utf-8")
             documents = loader.load()
 
-            # 2. Chia nhỏ văn bản
+            # 2. Chia nhỏ văn bản (Text Splitting)
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
             chunks = text_splitter.split_documents(documents)
 
@@ -39,13 +39,13 @@ class RAGService:
             # 5. Khởi tạo LLM
             llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
 
-            # 6. Tạo Hybrid Retriever (New Phase 2)
+            # 6. Tạo Hybrid Retriever (Giai đoạn 2: Nâng cấp tìm kiếm)
             from app.services.rag.retrievers import HybridRetriever
             logging.info("Đang khởi tạo Hybrid Retriever (BM25 + Vector + Rerank)...")
             retriever = HybridRetriever.from_documents(
                 documents=chunks, 
                 vector_store=self.vector_store, 
-                k=5 # Lấy 5 candidate mỗi bên -> Rerank lấy top 3
+                k=5 # Lấy 5 ứng viên mỗi bên -> Rerank lấy top 3
             )
 
             # 7. Tạo chuỗi QA với Prompt tùy chỉnh
@@ -77,7 +77,7 @@ class RAGService:
         except Exception as e:
             logging.error(f"Lỗi khởi động RAG: {e}")
             self.ready = False
-            # Không raise e để app vẫn start được
+            # Không raise exception để app vẫn khởi động được dù RAG lỗi
             # raise e
 
     def get_answer(self, question: str) -> str:

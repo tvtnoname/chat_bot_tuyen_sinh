@@ -15,7 +15,7 @@ class ChatOrchestrator:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(model=settings.MODEL_NAME, google_api_key=settings.GOOGLE_API_KEY, temperature=0.3)
         
-        # Bind tools to LLM
+        # Liên kết các công cụ (tools) với LLM
         self.tools = [search_classes, search_general_info, ask_for_branch, ask_for_grade, ask_for_subject]
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
@@ -146,12 +146,12 @@ class ChatOrchestrator:
         if not session_id:
             session_id = await session_manager.create_session(user_id=user_id)
         
-        # 0. Pre-process state update (KEEP EXISTING)
+        # 0. Cập nhật trạng thái tiền xử lý (Giữ nguyên logic hiện tại)
         extracted_branch, extracted_grade, extracted_subject = await self._extract_entities(question)
         if extracted_branch or extracted_grade or extracted_subject:
             await session_manager.update_context(session_id, branch=extracted_branch, grade=extracted_grade, subject=extracted_subject)
         
-        # 1. Prepare Context & System Prompt
+        # 1. Chuẩn bị ngữ cảnh và System Prompt
         valid_branches = await external_api_service.get_all_branches()
         valid_grades = await external_api_service.get_all_grades()
         
@@ -185,7 +185,7 @@ Lịch sử chat:
 """
         messages = [SystemMessage(content=system_prompt)]
         
-        # Inject History
+        # Tiêm lịch sử chat vào prompt
         raw_history = await session_manager.get_history(session_id)
         for msg in raw_history:
             if msg["role"] == "user":
@@ -193,20 +193,20 @@ Lịch sử chat:
             else:
                 messages.append(AIMessage(content=msg["content"]))
 
-        # Inject Current Context
+        # Tiêm ngữ cảnh hiện tại vào prompt
         context = await session_manager.get_context(session_id)
         current_slots_info = f"SYSTEM_NOTE involved entities so far: Branch={context.get('branch')}, Grade={context.get('grade')}, Subject={context.get('subject')}"
         messages.append(SystemMessage(content=current_slots_info))
 
-        # Add Current User Message
+        # Thêm tin nhắn hiện tại của người dùng
         messages.append(HumanMessage(content=question))
-        # Save user msg to history
+        # Lưu tin nhắn người dùng vào lịch sử
         await session_manager.add_message(session_id, "user", question)
 
-        # 2. Invoke LLM with Tools
+        # 2. Gọi LLM kèm theo Tools
         response = await self.llm_with_tools.ainvoke(messages)
 
-        # 3. Handle Response
+        # 3. Xử lý phản hồi từ LLM
         final_answer_text = ""
         
         if response.tool_calls:
@@ -249,11 +249,11 @@ Lịch sử chat:
                 await session_manager.add_message(session_id, "assistant", final_answer_text)
                 return final_answer_text, session_id, [], []
 
-        # Case B: No Tool Call
+        # Trường hợp B: Không gọi Tool
         final_answer_text = response.content
         await session_manager.add_message(session_id, "assistant", final_answer_text)
         
-        # HEURISTIC GUARDRAILS (Phòng hờ Agent quên gọi tool)
+        # HEURISTIC GUARDRAILS (Phòng vệ trường hợp Agent quên gọi tool)
         # Nếu câu trả lời chứa từ khóa hỏi thông tin, tự động đính kèm options tương ứng.
         lower_answer = final_answer_text.lower()
         
@@ -279,18 +279,18 @@ Lịch sử chat:
 
     async def process_message_stream(self, question: str, session_id: str = None, user_id: str = None):
         """
-        Streaming version of process_message.
-        Yields chunks of text for the final answer.
+        Phiên bản Streaming của process_message.
+        Trả về các đoạn text (chunks) cho câu trả lời cuối cùng.
         """
         if not session_id:
             session_id = await session_manager.create_session(user_id=user_id)
         
-        # 1. State Update & Extract (Not streamed)
+        # 1. Cập nhật trạng thái và trích xuất (Không streaming bước này)
         extracted_branch, extracted_grade, extracted_subject = await self._extract_entities(question)
         if extracted_branch or extracted_grade or extracted_subject:
             await session_manager.update_context(session_id, branch=extracted_branch, grade=extracted_grade, subject=extracted_subject)
         
-        # 2. Context & Messages
+        # 2. Ngữ cảnh và Tin nhắn
         valid_branches = await external_api_service.get_all_branches()
         valid_grades = await external_api_service.get_all_grades()
         
@@ -322,7 +322,7 @@ Lịch sử chat:
 """
         messages = [SystemMessage(content=system_prompt)]
         
-        # Inject History
+        # Tiêm lịch sử chat
         raw_history = await session_manager.get_history(session_id)
         for msg in raw_history:
             if msg["role"] == "user":
@@ -330,22 +330,22 @@ Lịch sử chat:
             else:
                 messages.append(AIMessage(content=msg["content"]))
 
-        # Inject Current Context
+        # Tiêm ngữ cảnh hiện tại
         context = await session_manager.get_context(session_id)
         current_slots_info = f"SYSTEM_NOTE involved entities so far: Branch={context.get('branch')}, Grade={context.get('grade')}, Subject={context.get('subject')}"
         messages.append(SystemMessage(content=current_slots_info))
 
-        # Add Current User Message
+        # Thêm tin nhắn hiện tại của người dùng
         messages.append(HumanMessage(content=question))
         await session_manager.add_message(session_id, "user", question)
 
-        # 3. Invoke LLM (Check for tools first - Non-streaming step)
+        # 3. Gọi LLM (Kiểm tra tools trước - Bước này không streaming)
         response = await self.llm_with_tools.ainvoke(messages)
         
         final_answer_text = ""
         final_answer_chunk = ""
 
-        # Case A: Tool Call
+        # Trường hợp A: Có gọi Tool
         if response.tool_calls:
             tool_call = response.tool_calls[0]
             tool_name = tool_call["name"]
@@ -357,33 +357,30 @@ Lịch sử chat:
                 data = await search_classes.ainvoke(tool_args)
                 await session_manager.update_context(session_id, **tool_args)
                 
-                # Stream the data response generation
-                # We need to construct the chain manually to stream it
+                # Streaming quá trình sinh dữ liệu trả về
+                # Cần tự xây dựng chain thủ công để stream nó
                 chain = self.data_response_prompt | self.llm
                 async for chunk in chain.astream({"data": str(data), "question": question}):
                      text_chunk = chunk.content
                      final_answer_text += text_chunk
-                     # Simple logic: avoid streaming raw JSON if possible, but strict JSON is prompted
-                     # For streaming text, we might just yield the whole accumulation if it's JSON?
-                     # Wait, prompt asks for JSON. Users can't read JSON stream easily.
-                     # Compromise: Buffer the JSON, parse it, then yield the "answer" field.
-                     # Streaming JSON is hard. Let's simplify: 
-                     # Only stream if it's NOT a data tool that requires complex JSON UI.
-                     # Actually, for data tools, user expects a UI card, not just text.
-                     # So we should probably NOT stream the JSON generation, but just return standard response.
+                     # Logic đơn giản: tránh stream raw JSON nếu có thể
+                     # Đợi JSON hoàn chỉnh để đảm bảo UI không bị vỡ
                      pass 
                 
-                # Fallback to standard wait for JSON tools to ensure valid UI structure
+                # Fallback: đợi tool JSON hoàn thành để đảm bảo cấu trúc UI hợp lệ
                 answer, courses = await self._generate_data_response(question, data)
                 final_answer_text = answer
                 
-                # Yield the text answer first
-                yield f"data: {json.dumps({'text': answer, 'session_id': session_id})}\n\n"
+                # Stream câu trả lời text trước
+                chunks = [answer[i:i+5] for i in range(0, len(answer), 5)]
+                for chunk in chunks:
+                     yield f"data: {json.dumps({'text_chunk': chunk, 'session_id': session_id})}\n\n"
+                     await asyncio.sleep(0.02)
                 
-                # Yield the complex data (courses)
+                # Trả về dữ liệu phức tạp (courses)
                 yield f"data: {json.dumps({'courses': courses})}\n\n"
                 
-                await session_manager.add_message(session_id, "assistant", final_answer_text)
+                await session_manager.add_message(session_id, "assistant", final_answer_text, courses=courses)
                 return
 
             elif tool_name in ["ask_for_branch", "ask_for_grade", "ask_for_subject"]:
@@ -398,19 +395,26 @@ Lịch sử chat:
                     options = await external_api_service.get_all_subjects()
                     final_answer_text = "Bạn muốn tìm lớp môn gì ạ?"
                 
-                yield f"data: {json.dumps({'text': final_answer_text, 'session_id': session_id, 'options': options})}\n\n"
-                await session_manager.add_message(session_id, "assistant", final_answer_text)
+                # Stream text trước
+                chunks = [final_answer_text[i:i+5] for i in range(0, len(final_answer_text), 5)]
+                for chunk in chunks:
+                     yield f"data: {json.dumps({'text_chunk': chunk, 'session_id': session_id})}\n\n"
+                     await asyncio.sleep(0.02)
+                
+                # Sau đó gửi options
+                if options:
+                    yield f"data: {json.dumps({'options': options})}\n\n"
+
+                await session_manager.add_message(session_id, "assistant", final_answer_text, options=options)
                 return
                 
             elif tool_name == "search_general_info":
-                # General info is usually text, we can stream this!
-                # But search_general_info tool returns static text or RAG text.
-                # If RAG is used inside the tool, it returns full text.
-                # We can simulate streaming of the result.
+                # Thông tin chung thường là text, chúng ta có thể stream nó!
+                # Mô phỏng streaming kết quả trả về.
                 answer_text = search_general_info.invoke(tool_args)
                 final_answer_text = answer_text
                 
-                # Simulate stream
+                # Mô phỏng stream
                 chunk_size = 10
                 for i in range(0, len(answer_text), chunk_size):
                     chunk = answer_text[i:i+chunk_size]
@@ -420,18 +424,11 @@ Lịch sử chat:
                 await session_manager.add_message(session_id, "assistant", final_answer_text)
                 return
 
-        # Case B: No Tool Call -> Pure Conversational Stream (The Real Streaming)
-        # We need to re-invoke the LLM in streaming mode because 'response' above was non-streaming (to check tool calls)
-        # But we already got 'response'.
-        # If response.content is populated, that's the answer.
-        # To stream, we should have used stream=True initially?
-        # Standard ReAct: Use streaming=True but capture chunks. If tool call chunk detected, stop yielding text?
-        # Simpler: If we checked tools above and found none, we can just yield the content we already got (pseudo-stream)
-        # OR re-generate. Re-generating adds cost/latency.
-        # Since 'response' already has the full content:
+        # Trường hợp B: Không gọi Tool -> Chat hội thoại thuần túy (Streaming thật)
+        # Chúng ta cần gọi lại LLM ở chế độ streaming vì 'response' ở trên là non-streaming
         final_answer_text = response.content
         
-        # Guardrails check first
+        # Kiểm tra Guardrails trước
         options = []
         lower = final_answer_text.lower()
         if any(kw in lower for kw in ["lớp mấy", "khối mấy", "khối lớp"]):
@@ -441,9 +438,7 @@ Lịch sử chat:
         elif any(kw in lower for kw in ["môn gì", "môn nào"]):
              options = await external_api_service.get_all_subjects()
 
-        # Stream the content we already have (Simulated streaming for consistency)
-        # Or ideally, we should use llm.astream from start. But parsing tool_calls from a stream is complex.
-        # For this phase, "Pseudo-streaming" the final text block is acceptable and safer.
+        # Stream nội dung đã có (Mô phỏng streaming để nhất quán trải nghiệm)
         chunk_size = 5 # chars
         chunks = [final_answer_text[i:i+chunk_size] for i in range(0, len(final_answer_text), chunk_size)]
         
@@ -454,6 +449,6 @@ Lịch sử chat:
         if options:
             yield f"data: {json.dumps({'options': options})}\n\n"
 
-        await session_manager.add_message(session_id, "assistant", final_answer_text)
+        await session_manager.add_message(session_id, "assistant", final_answer_text, options=options)
 
 chat_orchestrator = ChatOrchestrator()
