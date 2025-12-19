@@ -5,7 +5,7 @@ from app.core.database import Base
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
-    id = Column(String, primary_key=True, index=True) # Chuỗi UUID
+    id = Column(String, primary_key=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Ngữ cảnh (Lưu trữ thông tin trích xuất)
@@ -20,8 +20,8 @@ class ChatMessage(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, ForeignKey("chat_sessions.id"), index=True)
-    role = Column(String) # 'user' (người dùng) hoặc 'assistant' (trợ lý ảo)
+    role = Column(String)
     content = Column(Text)
-    options = Column(Text, nullable=True) # Chuỗi JSON chứa các lựa chọn (chips/buttons)
-    courses = Column(Text, nullable=True) # Chuỗi JSON chứa kết quả khóa học tìm được
+    options = Column(Text, nullable=True)
+    courses = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

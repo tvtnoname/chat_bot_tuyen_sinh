@@ -1,3 +1,4 @@
+import os
 # Quản lý Cache (Redis)
 import json
 import logging

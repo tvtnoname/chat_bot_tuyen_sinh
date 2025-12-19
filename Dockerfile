@@ -4,7 +4,6 @@ FROM python:3.10
 # Thiết lập thư mục làm việc
 WORKDIR /code
 
-# Copy file requirements trước để tận dụng cache layer của Docker
 COPY ./requirements.txt /code/requirements.txt
 
 # Cài đặt thư viện
@@ -14,11 +13,11 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./app /code/app
 COPY ./data /code/data
 
-# Thiết lập biến môi trường mặc định (có thể bị override bởi HF Secrets)
+# Thiết lập biến môi trường mặc định 
 # ENV MODEL_NAME="gemini-2.0-flash" 
 # ENV DATABASE_URL="..."
 
-# Tạo user non-root (bắt buộc trên một số platform)
+# Tạo user non-root 
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
